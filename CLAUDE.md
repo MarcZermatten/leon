@@ -129,6 +129,48 @@ Consulter `.claude/memory/` pour :
 - `decisions.md` - Choix d'architecture avec justifications
 - `index.md` - Index et règles de gestion mémoire
 
+## Agents Spécialisés
+
+Claude Code utilise automatiquement ces agents pour optimiser le contexte. Chaque agent a des instructions spécialisées et utilise le modèle approprié (haiku pour rapidité, sonnet pour analyse approfondie).
+
+### Frontend (haiku)
+| Agent | Déclenchement automatique |
+|-------|---------------------------|
+| **svelte-expert** | Questions Svelte 5, runes, SvelteKit, composants .svelte |
+| **css-stylist** | Styles CSS, layout flexbox/grid, responsive, animations |
+| **component-builder** | Création de composants, refactoring, design d'API |
+| **accessibility-checker** | Vérification a11y, ARIA, navigation clavier |
+
+### Backend (haiku)
+| Agent | Déclenchement automatique |
+|-------|---------------------------|
+| **tauri-expert** | Tauri 2.x config, invoke, plugins, capabilities |
+| **rust-expert** | Code Rust, ownership, Serde, async/tokio |
+
+### Qualité (haiku/sonnet)
+| Agent | Déclenchement automatique |
+|-------|---------------------------|
+| **typescript-fixer** | Erreurs TypeScript à corriger rapidement |
+| **error-resolver** | Messages d'erreur, stack traces, erreurs build |
+| **code-reviewer** | Revue de code après écriture significative |
+| **test-writer** | Écriture de tests Vitest/Jest/Playwright |
+| **bug-hunter** (sonnet) | Investigation bugs complexes, memory leaks |
+| **performance-optimizer** (sonnet) | Optimisation performance, bundle size |
+| **refactoring-assistant** | Refactoring, extraction, simplification |
+
+### DevOps (haiku)
+| Agent | Déclenchement automatique |
+|-------|---------------------------|
+| **git-assistant** | Conflits merge, rebase, cherry-pick, bisect |
+| **dependency-analyzer** | Audit sécurité, mise à jour packages, bundle size |
+
+### Documentation (haiku)
+| Agent | Déclenchement automatique |
+|-------|---------------------------|
+| **doc-writer** | Documentation technique, JSDoc, README, Changelog |
+
+Les agents sont définis dans `.claude/agents/` et se lancent automatiquement selon le contexte de la tâche.
+
 ## Commandes Disponibles
 - `/save` - Commit + push les changements
 - `/build` - Compiler l'application
