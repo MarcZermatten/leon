@@ -9,6 +9,7 @@
 	import PlanPanel from '$lib/components/plan/PlanPanel.svelte';
 	import SessionSelector from '$lib/components/layout/SessionSelector.svelte';
 	import GitPanel from '$lib/components/git/GitPanel.svelte';
+	import FileExplorer from '$lib/components/files/FileExplorer.svelte';
 	import type { PreviewState, PreviewMode } from '$lib/types/preview';
 	import { defaultPreviewState } from '$lib/types/preview';
 	import { checkClaudeAvailable, getClaudeVersion } from '$lib/services/claude';
@@ -72,6 +73,9 @@
 	let showGitPanel = $state(false);
 	let gitStatus = $state<GitStatus | null>(null);
 
+	// File explorer state
+	let showFileExplorer = $state(false);
+
 	// Computed Git changes count
 	let gitChangesCount = $derived(
 		(gitStatus?.staged.length || 0) +
@@ -107,6 +111,11 @@
 		if (e.ctrlKey && e.key === 'g') {
 			e.preventDefault();
 			handleToggleGit();
+		}
+		// Ctrl+E → File explorer
+		if (e.ctrlKey && e.key === 'e') {
+			e.preventDefault();
+			handleToggleFiles();
 		}
 	}
 
@@ -495,6 +504,27 @@
 			updatePreviewForFile(fullPath);
 		}
 	}
+
+	// Toggle File Explorer
+	function handleToggleFiles() {
+		showFileExplorer = !showFileExplorer;
+		if (showFileExplorer) {
+			// Fermer les autres panels
+			showPreview = false;
+			showPlanPanel = false;
+			showGitPanel = false;
+		}
+	}
+
+	function handleCloseFileExplorer() {
+		showFileExplorer = false;
+	}
+
+	function handleFileExplorerSelect(filePath: string) {
+		updatePreviewForFile(filePath);
+		showFileExplorer = false;
+		showPreview = true;
+	}
 </script>
 
 <svelte:window onmousemove={handleMouseMove} onmouseup={stopResize} />
@@ -512,6 +542,7 @@
 				onSave={handleSave}
 				onRelease={handleRelease}
 				onToggleGit={handleToggleGit}
+				onToggleFiles={handleToggleFiles}
 				hasActiveProject={!!workingDir}
 				gitChanges={gitChangesCount}
 			/>
@@ -604,8 +635,26 @@
 			{/if}
 		</div>
 
+		<!-- File Explorer (conditional) -->
+		{#if showFileExplorer && workingDir}
+			<div
+				class="resize-handle preview-resize"
+				onmousedown={(e) => startResize('preview', e)}
+				role="separator"
+				aria-orientation="vertical"
+				tabindex="-1"
+			></div>
+
+			<div class="preview-container" style="width: {previewWidth}px">
+				<FileExplorer
+					projectPath={workingDir}
+					isVisible={showFileExplorer}
+					onClose={handleCloseFileExplorer}
+					onFileSelect={handleFileExplorerSelect}
+				/>
+			</div>
 		<!-- Git Panel (conditional) -->
-		{#if showGitPanel && workingDir}
+		{:else if showGitPanel && workingDir}
 			<div
 				class="resize-handle preview-resize"
 				onmousedown={(e) => startResize('preview', e)}

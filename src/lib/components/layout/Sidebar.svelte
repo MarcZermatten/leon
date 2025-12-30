@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Plus, FolderOpen, MessageSquare, Settings, ChevronRight, Save, Rocket, GitBranch } from 'lucide-svelte';
+	import { Plus, FolderOpen, MessageSquare, Settings, ChevronRight, Save, Rocket, GitBranch, Files } from 'lucide-svelte';
 
 	interface Session {
 		id: string;
@@ -17,6 +17,7 @@
 		onSave = () => {},
 		onRelease = () => {},
 		onToggleGit = () => {},
+		onToggleFiles = () => {},
 		hasActiveProject = false,
 		gitChanges = 0
 	} = $props<{
@@ -28,6 +29,7 @@
 		onSave: () => void;
 		onRelease: () => void;
 		onToggleGit: () => void;
+		onToggleFiles: () => void;
 		hasActiveProject: boolean;
 		gitChanges: number;
 	}>();
@@ -74,6 +76,10 @@
 	<div class="sidebar-footer">
 		{#if hasActiveProject}
 			<div class="action-buttons">
+				<button class="action-btn files-btn" onclick={onToggleFiles} title="Afficher l'explorateur de fichiers">
+					<Files size={18} />
+					<span>Files</span>
+				</button>
 				<button class="action-btn git-btn" onclick={onToggleGit} title="Afficher le panneau Git">
 					<GitBranch size={18} />
 					<span>Git</span>
@@ -81,6 +87,8 @@
 						<span class="git-badge">{gitChanges}</span>
 					{/if}
 				</button>
+			</div>
+			<div class="action-buttons">
 				<button class="action-btn save-btn" onclick={onSave} title="Sauvegarder et pousser sur GitHub">
 					<Save size={18} />
 					<span>Sauver</span>
@@ -267,6 +275,11 @@
 	}
 
 	.release-btn:hover {
+		border-color: var(--color-lion-500);
+		color: var(--color-lion-400);
+	}
+
+	.files-btn:hover {
 		border-color: var(--color-lion-500);
 		color: var(--color-lion-400);
 	}
