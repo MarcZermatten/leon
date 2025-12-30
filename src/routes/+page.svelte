@@ -8,6 +8,7 @@
 	import CommandPalette from '$lib/components/layout/CommandPalette.svelte';
 	import PlanPanel from '$lib/components/plan/PlanPanel.svelte';
 	import SessionSelector from '$lib/components/layout/SessionSelector.svelte';
+	import GitPanel from '$lib/components/git/GitPanel.svelte';
 	import type { PreviewState, PreviewMode } from '$lib/types/preview';
 	import { defaultPreviewState } from '$lib/types/preview';
 	import { checkClaudeAvailable, getClaudeVersion } from '$lib/services/claude';
@@ -20,6 +21,7 @@
 		detectModifiedFiles,
 		shouldCreateCheckpoint
 	} from '$lib/services/checkpoints';
+	import { getGitStatus, type GitStatus } from '$lib/services/git';
 	import { FolderOpen, RotateCcw, Plus } from 'lucide-svelte';
 
 	interface ProjectSession {
@@ -66,6 +68,17 @@
 	let showPlanPanel = $state(false);
 	let planPanelComponent = $state<PlanPanel | null>(null);
 
+	// Git panel state
+	let showGitPanel = $state(false);
+	let gitStatus = $state<GitStatus | null>(null);
+
+	// Computed Git changes count
+	let gitChangesCount = $derived(
+		(gitStatus?.staged.length || 0) +
+		(gitStatus?.unstaged.length || 0) +
+		(gitStatus?.untracked.length || 0)
+	);
+
 	// Panel widths
 	let sidebarWidth = $state(260);
 	let previewWidth = $state(450);
@@ -73,40 +86,49 @@
 	// LocalStorage key
 	const PROJECTS_KEY = 'leon_recent_projects';
 
-	onMount(async () => {
-		// Charger les projets récents
-		loadRecentProjects();
-
-		// Vérifier si Claude CLI est disponible
-		claudeAvailable = await checkClaudeAvailable();
-		if (claudeAvailable) {
-			claudeVersion = await getClaudeVersion();
+	// Raccourcis clavier globaux
+	function handleGlobalKeydown(e: KeyboardEvent) {
+		// Ctrl+K → Command Palette
+		if (e.ctrlKey && e.key === 'k') {
+			e.preventDefault();
+			showCommandPalette = true;
 		}
+		// Ctrl+O → Open folder
+		if (e.ctrlKey && e.key === 'o') {
+			e.preventDefault();
+			handleOpenFolder();
+		}
+		// Ctrl+, → Settings
+		if (e.ctrlKey && e.key === ',') {
+			e.preventDefault();
+			showSettings = true;
+		}
+		// Ctrl+G → Git panel
+		if (e.ctrlKey && e.key === 'g') {
+			e.preventDefault();
+			handleToggleGit();
+		}
+	}
 
-		// Charger les stats initiales
-		await refreshStats();
+	onMount(() => {
+		// Async init
+		(async () => {
+			// Charger les projets récents
+			loadRecentProjects();
 
-		// Rafraîchir les stats toutes les 30 secondes
-		statsRefreshInterval = setInterval(refreshStats, 30000);
+			// Vérifier si Claude CLI est disponible
+			claudeAvailable = await checkClaudeAvailable();
+			if (claudeAvailable) {
+				claudeVersion = await getClaudeVersion();
+			}
 
-		// Raccourcis clavier globaux
-		const handleGlobalKeydown = (e: KeyboardEvent) => {
-			// Ctrl+K → Command Palette
-			if (e.ctrlKey && e.key === 'k') {
-				e.preventDefault();
-				showCommandPalette = true;
-			}
-			// Ctrl+O → Open folder
-			if (e.ctrlKey && e.key === 'o') {
-				e.preventDefault();
-				handleOpenFolder();
-			}
-			// Ctrl+, → Settings
-			if (e.ctrlKey && e.key === ',') {
-				e.preventDefault();
-				showSettings = true;
-			}
-		};
+			// Charger les stats initiales
+			await refreshStats();
+
+			// Rafraîchir les stats toutes les 30 secondes
+			statsRefreshInterval = setInterval(refreshStats, 30000);
+		})();
+
 		window.addEventListener('keydown', handleGlobalKeydown);
 
 		return () => {
@@ -125,11 +147,25 @@
 			claudeStats = await getClaudeStats();
 			if (workingDir) {
 				sessionStats = await getSessionStats(workingDir);
+				// Rafraîchir aussi le status Git
+				await refreshGitStatus();
 			}
 			// Mettre à jour le compteur de checkpoints
 			checkpointCount = await getCheckpointCount();
 		} catch (e) {
 			console.error('Error refreshing stats:', e);
+		}
+	}
+
+	async function refreshGitStatus() {
+		if (!workingDir) {
+			gitStatus = null;
+			return;
+		}
+		try {
+			gitStatus = await getGitStatus(workingDir);
+		} catch (e) {
+			console.error('Error refreshing git status:', e);
 		}
 	}
 
@@ -400,14 +436,6 @@
 		}
 	}
 
-	// Sauver et pousser sur GitHub
-	function handleSave() {
-		if (terminalComponent && workingDir) {
-			const saveCommand = 'Sauvegarde tous les fichiers modifiés, fais un commit Git avec un message descriptif, et pousse sur GitHub.\n';
-			terminalComponent.sendText(saveCommand);
-		}
-	}
-
 	// Créer et pousser une release
 	function handleRelease() {
 		if (terminalComponent && workingDir) {
@@ -444,6 +472,29 @@
 			}, 500);
 		}
 	}
+
+	// Toggle Git Panel
+	function handleToggleGit() {
+		showGitPanel = !showGitPanel;
+		if (showGitPanel) {
+			// Fermer les autres panels
+			showPreview = false;
+			showPlanPanel = false;
+			refreshGitStatus();
+		}
+	}
+
+	function handleCloseGitPanel() {
+		showGitPanel = false;
+	}
+
+	function handleGitFileSelect(filePath: string) {
+		// Afficher le fichier sélectionné dans le preview
+		if (workingDir) {
+			const fullPath = filePath.startsWith(workingDir) ? filePath : `${workingDir}/${filePath}`;
+			updatePreviewForFile(fullPath);
+		}
+	}
 </script>
 
 <svelte:window onmousemove={handleMouseMove} onmouseup={stopResize} />
@@ -460,7 +511,9 @@
 				onOpenSettings={handleOpenSettings}
 				onSave={handleSave}
 				onRelease={handleRelease}
+				onToggleGit={handleToggleGit}
 				hasActiveProject={!!workingDir}
+				gitChanges={gitChangesCount}
 			/>
 		</div>
 
@@ -551,8 +604,26 @@
 			{/if}
 		</div>
 
+		<!-- Git Panel (conditional) -->
+		{#if showGitPanel && workingDir}
+			<div
+				class="resize-handle preview-resize"
+				onmousedown={(e) => startResize('preview', e)}
+				role="separator"
+				aria-orientation="vertical"
+				tabindex="-1"
+			></div>
+
+			<div class="preview-container" style="width: {previewWidth}px">
+				<GitPanel
+					projectPath={workingDir}
+					isVisible={showGitPanel}
+					onClose={handleCloseGitPanel}
+					onFileSelect={handleGitFileSelect}
+				/>
+			</div>
 		<!-- Plan Panel (conditional) -->
-		{#if showPlanPanel && workingDir}
+		{:else if showPlanPanel && workingDir}
 			<div
 				class="resize-handle preview-resize"
 				onmousedown={(e) => startResize('preview', e)}

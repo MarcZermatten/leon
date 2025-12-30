@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Plus, FolderOpen, MessageSquare, Settings, ChevronRight, Save, Rocket } from 'lucide-svelte';
+	import { Plus, FolderOpen, MessageSquare, Settings, ChevronRight, Save, Rocket, GitBranch } from 'lucide-svelte';
 
 	interface Session {
 		id: string;
@@ -16,7 +16,9 @@
 		onOpenSettings = () => {},
 		onSave = () => {},
 		onRelease = () => {},
-		hasActiveProject = false
+		onToggleGit = () => {},
+		hasActiveProject = false,
+		gitChanges = 0
 	} = $props<{
 		sessions: Session[];
 		activeSession: string | null;
@@ -25,7 +27,9 @@
 		onOpenSettings: () => void;
 		onSave: () => void;
 		onRelease: () => void;
+		onToggleGit: () => void;
 		hasActiveProject: boolean;
+		gitChanges: number;
 	}>();
 </script>
 
@@ -70,6 +74,13 @@
 	<div class="sidebar-footer">
 		{#if hasActiveProject}
 			<div class="action-buttons">
+				<button class="action-btn git-btn" onclick={onToggleGit} title="Afficher le panneau Git">
+					<GitBranch size={18} />
+					<span>Git</span>
+					{#if gitChanges > 0}
+						<span class="git-badge">{gitChanges}</span>
+					{/if}
+				</button>
 				<button class="action-btn save-btn" onclick={onSave} title="Sauvegarder et pousser sur GitHub">
 					<Save size={18} />
 					<span>Sauver</span>
@@ -258,5 +269,31 @@
 	.release-btn:hover {
 		border-color: var(--color-lion-500);
 		color: var(--color-lion-400);
+	}
+
+	.git-btn {
+		position: relative;
+	}
+
+	.git-btn:hover {
+		border-color: var(--color-info, #74c0fc);
+		color: var(--color-info, #74c0fc);
+	}
+
+	.git-badge {
+		position: absolute;
+		top: -4px;
+		right: -4px;
+		min-width: 16px;
+		height: 16px;
+		padding: 0 4px;
+		background: var(--color-warning, #ffa94d);
+		border-radius: 8px;
+		font-size: 0.6rem;
+		font-weight: 600;
+		color: black;
+		display: flex;
+		align-items: center;
+		justify-content: center;
 	}
 </style>
