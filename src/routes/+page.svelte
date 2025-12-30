@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
 	import Sidebar from '$lib/components/layout/Sidebar.svelte';
-	import Terminal from '$lib/components/terminal/Terminal.svelte';
+	import TerminalTabs from '$lib/components/terminal/TerminalTabs.svelte';
 	import PreviewPanel from '$lib/components/preview/PreviewPanel.svelte';
 	import StatusBar from '$lib/components/layout/StatusBar.svelte';
 	import SettingsModal from '$lib/components/layout/SettingsModal.svelte';
@@ -34,7 +34,7 @@
 	let claudeVersion = $state<string | null>(null);
 	let workingDir = $state<string | null>(null);
 	let terminalReady = $state(false);
-	let terminalComponent = $state<Terminal | null>(null);
+	let terminalComponent = $state<TerminalTabs | null>(null);
 	let showSettings = $state(false);
 	let showCommandPalette = $state(false);
 
@@ -442,7 +442,7 @@
 					</button>
 				</div>
 				{#key workingDir}
-					<Terminal
+					<TerminalTabs
 						bind:this={terminalComponent}
 						{workingDir}
 						onReady={handleTerminalReady}
