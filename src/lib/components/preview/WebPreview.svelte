@@ -15,6 +15,7 @@
 	let autoRefresh = $state(data?.autoRefresh || false);
 	let refreshInterval = $state(data?.refreshInterval || 5000);
 	let refreshTimer: ReturnType<typeof setInterval> | null = null;
+	let lastExternalUrl = $state(data?.url || '');
 
 	const viewportSizes = {
 		desktop: { width: '100%', height: '100%' },
@@ -22,9 +23,11 @@
 		mobile: { width: '375px', height: '667px' }
 	};
 
+	// Sync only when external URL changes (not on every keystroke)
 	$effect(() => {
-		if (data?.url && data.url !== urlInput) {
+		if (data?.url && data.url !== lastExternalUrl) {
 			urlInput = data.url;
+			lastExternalUrl = data.url;
 		}
 	});
 
