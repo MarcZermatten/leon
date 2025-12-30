@@ -7,18 +7,20 @@
 		sessionId = null,
 		tokensUsed = { input: 0, output: 0 },
 		status = 'idle',
-		contextRemaining = null,
-		sessionUsage = null,
-		weeklyUsage = null
+		contextUsedPercent = null,
+		sessionMessages = null,
+		todayMessages = null,
+		weeklyMessages = null
 	} = $props<{
 		project: string;
 		model: string;
 		sessionId: string | null;
 		tokensUsed: { input: number; output: number };
 		status: 'idle' | 'thinking' | 'executing' | 'error';
-		contextRemaining: number | null;
-		sessionUsage: { used: number; limit: number } | null;
-		weeklyUsage: { used: number; limit: number } | null;
+		contextUsedPercent: number | null;
+		sessionMessages: number | null;
+		todayMessages: number | null;
+		weeklyMessages: number | null;
 	}>();
 
 	const statusConfig: Record<string, { color: string; label: string }> = {
@@ -34,15 +36,9 @@
 		return n.toString();
 	}
 
-	function formatPercentage(used: number, limit: number): string {
-		if (limit === 0) return '0%';
-		return Math.round((used / limit) * 100) + '%';
-	}
-
-	function getUsageColor(used: number, limit: number): string {
-		const pct = limit > 0 ? (used / limit) * 100 : 0;
-		if (pct >= 90) return 'var(--color-error)';
-		if (pct >= 70) return 'var(--color-warning, #ffd43b)';
+	function getContextColor(percent: number): string {
+		if (percent >= 90) return 'var(--color-error)';
+		if (percent >= 70) return 'var(--color-warning, #ffd43b)';
 		return 'var(--color-success, #69db7c)';
 	}
 </script>
@@ -66,28 +62,31 @@
 	</div>
 
 	<div class="status-right">
-		{#if contextRemaining !== null}
-			<div class="status-item context" title="Contexte restant avant auto-compactage">
+		{#if contextUsedPercent !== null}
+			<div class="status-item context" title="Contexte utilisé ({Math.round(contextUsedPercent)}% de 200K tokens)">
 				<Database size={14} />
-				<span style="color: {getUsageColor(100 - contextRemaining, 100)}">{contextRemaining}%</span>
+				<span style="color: {getContextColor(contextUsedPercent)}">{Math.round(contextUsedPercent)}%</span>
 			</div>
 		{/if}
 
-		{#if sessionUsage}
-			<div class="status-item usage" title="Utilisation session">
+		{#if sessionMessages !== null}
+			<div class="status-item usage" title="Messages dans cette session">
 				<Zap size={14} />
-				<span style="color: {getUsageColor(sessionUsage.used, sessionUsage.limit)}">
-					{formatPercentage(sessionUsage.used, sessionUsage.limit)}
-				</span>
+				<span>{sessionMessages} msg</span>
 			</div>
 		{/if}
 
-		{#if weeklyUsage}
-			<div class="status-item weekly" title="Utilisation semaine">
+		{#if todayMessages !== null}
+			<div class="status-item today" title="Messages aujourd'hui">
+				<span class="today-label">Auj:</span>
+				<span>{todayMessages}</span>
+			</div>
+		{/if}
+
+		{#if weeklyMessages !== null}
+			<div class="status-item weekly" title="Messages cette semaine">
 				<Calendar size={14} />
-				<span style="color: {getUsageColor(weeklyUsage.used, weeklyUsage.limit)}">
-					{formatPercentage(weeklyUsage.used, weeklyUsage.limit)}
-				</span>
+				<span>{weeklyMessages}</span>
 			</div>
 		{/if}
 
@@ -144,9 +143,15 @@
 
 	.context span,
 	.usage span,
+	.today span,
 	.weekly span {
 		font-family: 'JetBrains Mono', 'Cascadia Code', monospace;
 		font-weight: 500;
+	}
+
+	.today-label {
+		color: var(--color-text-muted);
+		font-weight: 400;
 	}
 
 	.session span {

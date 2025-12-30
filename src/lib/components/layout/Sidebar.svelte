@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Plus, FolderOpen, MessageSquare, Settings, ChevronRight } from 'lucide-svelte';
+	import { Plus, FolderOpen, MessageSquare, Settings, ChevronRight, Save, Rocket } from 'lucide-svelte';
 
 	interface Session {
 		id: string;
@@ -13,13 +13,19 @@
 		activeSession = null,
 		onNewChat = () => {},
 		onSelectSession = (id: string) => {},
-		onOpenSettings = () => {}
+		onOpenSettings = () => {},
+		onSave = () => {},
+		onRelease = () => {},
+		hasActiveProject = false
 	} = $props<{
 		sessions: Session[];
 		activeSession: string | null;
 		onNewChat: () => void;
 		onSelectSession: (id: string) => void;
 		onOpenSettings: () => void;
+		onSave: () => void;
+		onRelease: () => void;
+		hasActiveProject: boolean;
 	}>();
 </script>
 
@@ -62,6 +68,18 @@
 	</nav>
 
 	<div class="sidebar-footer">
+		{#if hasActiveProject}
+			<div class="action-buttons">
+				<button class="action-btn save-btn" onclick={onSave} title="Sauvegarder et pousser sur GitHub">
+					<Save size={18} />
+					<span>Sauver</span>
+				</button>
+				<button class="action-btn release-btn" onclick={onRelease} title="Créer et pousser une release">
+					<Rocket size={18} />
+					<span>Release</span>
+				</button>
+			</div>
+		{/if}
 		<button class="settings-btn" onclick={onOpenSettings}>
 			<Settings size={18} />
 			<span>Paramètres</span>
@@ -202,5 +220,43 @@
 	.settings-btn:hover {
 		background-color: var(--color-bg-hover);
 		color: var(--color-text-primary);
+	}
+
+	.action-buttons {
+		display: flex;
+		gap: 0.5rem;
+		padding: 0.5rem;
+		border-bottom: 1px solid var(--color-border);
+	}
+
+	.action-btn {
+		flex: 1;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 0.375rem;
+		padding: 0.5rem;
+		background: none;
+		border: 1px solid var(--color-border);
+		border-radius: 6px;
+		color: var(--color-text-secondary);
+		cursor: pointer;
+		font-size: 0.75rem;
+		transition: all 0.15s;
+	}
+
+	.action-btn:hover {
+		background-color: var(--color-bg-hover);
+		color: var(--color-text-primary);
+	}
+
+	.save-btn:hover {
+		border-color: var(--color-success, #69db7c);
+		color: var(--color-success, #69db7c);
+	}
+
+	.release-btn:hover {
+		border-color: var(--color-lion-500);
+		color: var(--color-lion-400);
 	}
 </style>

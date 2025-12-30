@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 	import Sidebar from '$lib/components/layout/Sidebar.svelte';
 	import Terminal from '$lib/components/terminal/Terminal.svelte';
 	import PreviewPanel from '$lib/components/preview/PreviewPanel.svelte';
@@ -8,6 +8,7 @@
 	import type { PreviewState, PreviewMode } from '$lib/types/preview';
 	import { defaultPreviewState } from '$lib/types/preview';
 	import { checkClaudeAvailable, getClaudeVersion } from '$lib/services/claude';
+	import { getClaudeStats, getSessionStats, type ClaudeStats, type SessionStats } from '$lib/services/stats';
 	import { FolderOpen } from 'lucide-svelte';
 
 	interface ProjectSession {
@@ -27,10 +28,16 @@
 	let terminalComponent = $state<Terminal | null>(null);
 	let showSettings = $state(false);
 
-	// Usage stats (placeholder - à connecter avec Claude Code output)
-	let contextRemaining = $state<number | null>(85);
-	let sessionUsage = $state<{ used: number; limit: number } | null>({ used: 45, limit: 100 });
-	let weeklyUsage = $state<{ used: number; limit: number } | null>({ used: 230, limit: 1000 });
+	// Usage stats (connecté aux vraies données Claude Code)
+	let claudeStats = $state<ClaudeStats | null>(null);
+	let sessionStats = $state<SessionStats | null>(null);
+	let statsRefreshInterval: ReturnType<typeof setInterval> | null = null;
+
+	// Computed stats for StatusBar
+	let contextUsedPercent = $derived(sessionStats ? sessionStats.context_used_percent : null);
+	let sessionMessages = $derived(sessionStats ? sessionStats.message_count : null);
+	let todayMessages = $derived(claudeStats ? claudeStats.today_messages : null);
+	let weeklyMessages = $derived(claudeStats ? claudeStats.weekly_messages : null);
 
 	// Preview state
 	let previewState = $state<PreviewState>(defaultPreviewState);
@@ -52,7 +59,30 @@
 		if (claudeAvailable) {
 			claudeVersion = await getClaudeVersion();
 		}
+
+		// Charger les stats initiales
+		await refreshStats();
+
+		// Rafraîchir les stats toutes les 30 secondes
+		statsRefreshInterval = setInterval(refreshStats, 30000);
 	});
+
+	onDestroy(() => {
+		if (statsRefreshInterval) {
+			clearInterval(statsRefreshInterval);
+		}
+	});
+
+	async function refreshStats() {
+		try {
+			claudeStats = await getClaudeStats();
+			if (workingDir) {
+				sessionStats = await getSessionStats(workingDir);
+			}
+		} catch (e) {
+			console.error('Error refreshing stats:', e);
+		}
+	}
 
 	function loadRecentProjects() {
 		try {
@@ -97,6 +127,9 @@
 	function openProject(path: string, customName?: string) {
 		workingDir = path;
 
+		// Rafraîchir les stats pour ce projet
+		refreshStats();
+
 		// Vérifier si le projet existe déjà
 		const existing = sessionsList.find(s => s.project === path);
 		if (existing) {
@@ -140,6 +173,57 @@
 	function handleTerminalReady() {
 		terminalReady = true;
 		terminalComponent?.focus();
+	}
+
+	function handleTerminalOutput(text: string) {
+		// Parser l'output pour détecter les fichiers mentionnés par Claude
+		// Pattern pour chemins Windows et Unix
+		const filePatterns = [
+			/(?:Read|Edit|Write|Created?|Modified?|Deleted?|Updated?)[:\s]+["']?([A-Za-z]:\\[^\s"'\n]+|\/[^\s"'\n]+)/gi,
+			/(?:file|fichier)[:\s]+["']?([A-Za-z]:\\[^\s"'\n]+|\/[^\s"'\n]+)/gi
+		];
+
+		for (const pattern of filePatterns) {
+			const matches = text.matchAll(pattern);
+			for (const match of matches) {
+				const filePath = match[1];
+				console.log('[Preview] Detected file:', filePath);
+				// TODO: Lire le fichier et mettre à jour le preview
+				updatePreviewForFile(filePath);
+			}
+		}
+	}
+
+	async function updatePreviewForFile(filePath: string) {
+		try {
+			const { readTextFile } = await import('@tauri-apps/plugin-fs');
+			const content = await readTextFile(filePath);
+
+			// Détecter le langage depuis l'extension
+			const ext = filePath.split('.').pop()?.toLowerCase() || '';
+			const languageMap: Record<string, string> = {
+				ts: 'typescript', tsx: 'typescript', js: 'javascript', jsx: 'javascript',
+				svelte: 'html', vue: 'html', html: 'html', css: 'css', scss: 'scss',
+				json: 'json', md: 'markdown', py: 'python', rs: 'rust', go: 'go',
+				sql: 'sql', yaml: 'yaml', yml: 'yaml', toml: 'toml', dart: 'dart'
+			};
+
+			const language = languageMap[ext] || 'plaintext';
+
+			previewState = {
+				...previewState,
+				mode: 'code',
+				code: {
+					filePath,
+					content,
+					language,
+					lineNumbers: true
+				}
+			};
+			showPreview = true;
+		} catch (e) {
+			console.error('[Preview] Error reading file:', e);
+		}
 	}
 
 	function handleOpenSettings() {
@@ -200,6 +284,22 @@
 			handleRenameProject(session.id, newName.trim());
 		}
 	}
+
+	// Sauver et pousser sur GitHub
+	function handleSave() {
+		if (terminalComponent && workingDir) {
+			const saveCommand = 'Sauvegarde tous les fichiers modifiés, fais un commit Git avec un message descriptif, et pousse sur GitHub.\n';
+			terminalComponent.sendText(saveCommand);
+		}
+	}
+
+	// Créer et pousser une release
+	function handleRelease() {
+		if (terminalComponent && workingDir) {
+			const releaseCommand = 'Crée une nouvelle release Git avec un tag de version approprié et pousse-la sur GitHub.\n';
+			terminalComponent.sendText(releaseCommand);
+		}
+	}
 </script>
 
 <svelte:window onmousemove={handleMouseMove} onmouseup={stopResize} />
@@ -214,6 +314,9 @@
 				onNewChat={handleNewChat}
 				onSelectSession={handleSelectSession}
 				onOpenSettings={handleOpenSettings}
+				onSave={handleSave}
+				onRelease={handleRelease}
+				hasActiveProject={!!workingDir}
 			/>
 		</div>
 
@@ -243,6 +346,7 @@
 						bind:this={terminalComponent}
 						{workingDir}
 						onReady={handleTerminalReady}
+						onOutput={handleTerminalOutput}
 					/>
 				{/key}
 			{:else}
@@ -317,9 +421,10 @@
 		sessionId={activeSession}
 		tokensUsed={{ input: 0, output: 0 }}
 		status={terminalReady ? 'idle' : 'thinking'}
-		{contextRemaining}
-		{sessionUsage}
-		{weeklyUsage}
+		{contextUsedPercent}
+		{sessionMessages}
+		{todayMessages}
+		{weeklyMessages}
 	/>
 </div>
 

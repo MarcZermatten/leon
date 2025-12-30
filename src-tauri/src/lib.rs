@@ -1,9 +1,10 @@
 mod commands;
 
 use commands::{
-    capture_window, check_claude_available, get_claude_version, get_session_id,
-    is_session_active, kill_pty, list_windows, resize_pty, send_claude_message,
-    start_claude_session, start_pty, stop_claude_session, write_pty, ClaudeRunner, PtyManager,
+    capture_window, check_claude_available, get_claude_stats, get_claude_version,
+    get_session_id, get_session_stats, is_session_active, kill_pty, list_windows, resize_pty,
+    send_claude_message, start_claude_session, start_pty, stop_claude_session, write_pty,
+    ClaudeRunner, PtyManager,
 };
 use std::sync::{Arc, Mutex};
 
@@ -31,7 +32,10 @@ pub fn run() {
             start_pty,
             write_pty,
             resize_pty,
-            kill_pty
+            kill_pty,
+            // Stats
+            get_claude_stats,
+            get_session_stats
         ])
         .setup(|app| {
             if cfg!(debug_assertions) {

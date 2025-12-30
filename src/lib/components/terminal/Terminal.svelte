@@ -6,10 +6,15 @@
 	import { ClipboardAddon } from '@xterm/addon-clipboard';
 	import '@xterm/xterm/css/xterm.css';
 
-	let { workingDir = null, onReady = () => {} } = $props<{
+	let { workingDir = null, onReady = () => {}, onOutput = (text: string) => {} } = $props<{
 		workingDir: string | null;
 		onReady: () => void;
+		onOutput: (text: string) => void;
 	}>();
+
+	// Buffer pour collecter l'output et détecter les fichiers
+	let outputBuffer = '';
+	let outputDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 
 	let terminalContainer: HTMLDivElement;
 	let terminal: Terminal;
@@ -17,6 +22,7 @@
 	let ptyId: string | null = null;
 	let unlistenData: (() => void) | null = null;
 	let unlistenExit: (() => void) | null = null;
+	let resizeObserver: ResizeObserver | null = null;
 
 	onMount(async () => {
 		// Créer le terminal xterm.js
@@ -81,7 +87,7 @@
 		});
 
 		// Observer le resize
-		const resizeObserver = new ResizeObserver(() => {
+		resizeObserver = new ResizeObserver(() => {
 			fitAddon.fit();
 			if (ptyId) {
 				resizePty();
@@ -98,13 +104,11 @@
 		});
 
 		onReady();
-
-		return () => {
-			resizeObserver.disconnect();
-		};
 	});
 
 	onDestroy(async () => {
+		if (outputDebounceTimer) clearTimeout(outputDebounceTimer);
+		if (resizeObserver) resizeObserver.disconnect();
 		if (unlistenData) unlistenData();
 		if (unlistenExit) unlistenExit();
 		if (ptyId) {
@@ -138,6 +142,19 @@
 				if (event.payload.pty_id === ptyId) {
 					const bytes = new Uint8Array(event.payload.data);
 					terminal.write(bytes);
+
+					// Décoder et collecter l'output pour détection de fichiers
+					const text = new TextDecoder().decode(bytes);
+					outputBuffer += text;
+
+					// Debounce l'envoi de l'output (attendre 300ms sans nouvelles données)
+					if (outputDebounceTimer) clearTimeout(outputDebounceTimer);
+					outputDebounceTimer = setTimeout(() => {
+						if (outputBuffer.length > 0) {
+							onOutput(outputBuffer);
+							outputBuffer = '';
+						}
+					}, 300);
 				}
 			});
 
@@ -182,6 +199,12 @@
 
 	// Méthode publique pour focus le terminal
 	export function focus() {
+		terminal?.focus();
+	}
+
+	// Méthode publique pour envoyer du texte au terminal
+	export function sendText(text: string) {
+		sendToPty(text);
 		terminal?.focus();
 	}
 </script>
