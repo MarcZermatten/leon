@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { Circle, Cpu, Hash, Zap, Database, Calendar } from 'lucide-svelte';
+	import { Circle, Cpu, Hash, Zap, Calendar, Undo2, History } from 'lucide-svelte';
+	import ContextGauge from './ContextGauge.svelte';
 
 	let {
 		project = 'Aucun projet',
@@ -10,7 +11,11 @@
 		contextUsedPercent = null,
 		sessionMessages = null,
 		todayMessages = null,
-		weeklyMessages = null
+		weeklyMessages = null,
+		checkpointCount = 0,
+		onUndo = () => {},
+		onShowCheckpoints = () => {},
+		onCompact = () => {}
 	} = $props<{
 		project: string;
 		model: string;
@@ -21,6 +26,10 @@
 		sessionMessages: number | null;
 		todayMessages: number | null;
 		weeklyMessages: number | null;
+		checkpointCount: number;
+		onUndo: () => void;
+		onShowCheckpoints: () => void;
+		onCompact: () => void;
 	}>();
 
 	const statusConfig: Record<string, { color: string; label: string }> = {
@@ -35,12 +44,6 @@
 		if (n >= 1000) return (n / 1000).toFixed(1) + 'K';
 		return n.toString();
 	}
-
-	function getContextColor(percent: number): string {
-		if (percent >= 90) return 'var(--color-error)';
-		if (percent >= 70) return 'var(--color-warning, #ffd43b)';
-		return 'var(--color-success, #69db7c)';
-	}
 </script>
 
 <footer class="status-bar">
@@ -53,6 +56,24 @@
 			<Cpu size={14} />
 			<span>{model}</span>
 		</div>
+		{#if checkpointCount > 0}
+			<button
+				class="status-btn undo"
+				title="Annuler dernière modification (Ctrl+Z)"
+				onclick={onUndo}
+			>
+				<Undo2 size={14} />
+				<span>Undo</span>
+			</button>
+			<button
+				class="status-btn history"
+				title="Historique des checkpoints ({checkpointCount})"
+				onclick={onShowCheckpoints}
+			>
+				<History size={14} />
+				<span>{checkpointCount}</span>
+			</button>
+		{/if}
 	</div>
 
 	<div class="status-center">
@@ -63,10 +84,7 @@
 
 	<div class="status-right">
 		{#if contextUsedPercent !== null}
-			<div class="status-item context" title="Contexte utilisé ({Math.round(contextUsedPercent)}% de 200K tokens)">
-				<Database size={14} />
-				<span style="color: {getContextColor(contextUsedPercent)}">{Math.round(contextUsedPercent)}%</span>
-			</div>
+			<ContextGauge percent={contextUsedPercent} {onCompact} />
 		{/if}
 
 		{#if sessionMessages !== null}
@@ -157,5 +175,35 @@
 	.session span {
 		font-family: 'JetBrains Mono', 'Cascadia Code', monospace;
 		opacity: 0.7;
+	}
+
+	.status-btn {
+		display: flex;
+		align-items: center;
+		gap: 0.25rem;
+		padding: 0.125rem 0.5rem;
+		background: transparent;
+		border: 1px solid var(--color-border);
+		border-radius: 4px;
+		color: var(--color-text-secondary);
+		font-size: 0.7rem;
+		cursor: pointer;
+		transition: all 0.15s ease;
+	}
+
+	.status-btn:hover {
+		background: var(--color-bg-secondary);
+		border-color: var(--color-lion-500);
+		color: var(--color-lion-400);
+	}
+
+	.status-btn.undo:hover {
+		border-color: var(--color-warning, #ffd43b);
+		color: var(--color-warning, #ffd43b);
+	}
+
+	.status-btn.history span {
+		font-family: 'JetBrains Mono', 'Cascadia Code', monospace;
+		font-weight: 600;
 	}
 </style>

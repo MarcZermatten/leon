@@ -5,10 +5,19 @@
 	import PreviewPanel from '$lib/components/preview/PreviewPanel.svelte';
 	import StatusBar from '$lib/components/layout/StatusBar.svelte';
 	import SettingsModal from '$lib/components/layout/SettingsModal.svelte';
+	import CommandPalette from '$lib/components/layout/CommandPalette.svelte';
 	import type { PreviewState, PreviewMode } from '$lib/types/preview';
 	import { defaultPreviewState } from '$lib/types/preview';
 	import { checkClaudeAvailable, getClaudeVersion } from '$lib/services/claude';
 	import { getClaudeStats, getSessionStats, type ClaudeStats, type SessionStats } from '$lib/services/stats';
+	import {
+		createCheckpoint,
+		undoLastChange,
+		getCheckpointCount,
+		setCheckpointProject,
+		detectModifiedFiles,
+		shouldCreateCheckpoint
+	} from '$lib/services/checkpoints';
 	import { FolderOpen } from 'lucide-svelte';
 
 	interface ProjectSession {
@@ -27,11 +36,16 @@
 	let terminalReady = $state(false);
 	let terminalComponent = $state<Terminal | null>(null);
 	let showSettings = $state(false);
+	let showCommandPalette = $state(false);
 
 	// Usage stats (connecté aux vraies données Claude Code)
 	let claudeStats = $state<ClaudeStats | null>(null);
 	let sessionStats = $state<SessionStats | null>(null);
 	let statsRefreshInterval: ReturnType<typeof setInterval> | null = null;
+
+	// Checkpoints
+	let checkpointCount = $state(0);
+	let pendingFiles: string[] = [];
 
 	// Computed stats for StatusBar
 	let contextUsedPercent = $derived(sessionStats ? sessionStats.context_used_percent : null);
@@ -65,6 +79,30 @@
 
 		// Rafraîchir les stats toutes les 30 secondes
 		statsRefreshInterval = setInterval(refreshStats, 30000);
+
+		// Raccourcis clavier globaux
+		const handleGlobalKeydown = (e: KeyboardEvent) => {
+			// Ctrl+K → Command Palette
+			if (e.ctrlKey && e.key === 'k') {
+				e.preventDefault();
+				showCommandPalette = true;
+			}
+			// Ctrl+O → Open folder
+			if (e.ctrlKey && e.key === 'o') {
+				e.preventDefault();
+				handleOpenFolder();
+			}
+			// Ctrl+, → Settings
+			if (e.ctrlKey && e.key === ',') {
+				e.preventDefault();
+				showSettings = true;
+			}
+		};
+		window.addEventListener('keydown', handleGlobalKeydown);
+
+		return () => {
+			window.removeEventListener('keydown', handleGlobalKeydown);
+		};
 	});
 
 	onDestroy(() => {
@@ -79,8 +117,53 @@
 			if (workingDir) {
 				sessionStats = await getSessionStats(workingDir);
 			}
+			// Mettre à jour le compteur de checkpoints
+			checkpointCount = await getCheckpointCount();
 		} catch (e) {
 			console.error('Error refreshing stats:', e);
+		}
+	}
+
+	async function handleUndo() {
+		const result = await undoLastChange();
+		if (result) {
+			console.log('[Undo] Restored:', result.description, result.restored_files);
+			checkpointCount = await getCheckpointCount();
+			// Rafraîchir le preview si un fichier restauré est affiché
+			if (previewState.code?.filePath && result.restored_files.includes(previewState.code.filePath)) {
+				updatePreviewForFile(previewState.code.filePath);
+			}
+		}
+	}
+
+	function handleShowCheckpoints() {
+		// TODO: Afficher un modal avec la liste des checkpoints
+		console.log('[Checkpoints] Show history');
+	}
+
+	function handleCompact() {
+		// Envoyer /compact au terminal
+		if (terminalComponent && workingDir) {
+			terminalComponent.sendText('/compact\n');
+		}
+	}
+
+	function handleSave() {
+		// Envoyer commande git save au terminal
+		if (terminalComponent && workingDir) {
+			terminalComponent.sendText('git add -A && git commit -m "save" && git push\n');
+		}
+	}
+
+	function handleClearTerminal() {
+		if (terminalComponent) {
+			terminalComponent.sendText('/clear\n');
+		}
+	}
+
+	function handleSendCommand(cmd: string) {
+		if (terminalComponent && workingDir) {
+			terminalComponent.sendText(cmd);
 		}
 	}
 
@@ -124,8 +207,12 @@
 		}
 	}
 
-	function openProject(path: string, customName?: string) {
+	async function openProject(path: string, customName?: string) {
 		workingDir = path;
+
+		// Initialiser les checkpoints pour ce projet
+		await setCheckpointProject(path);
+		checkpointCount = 0;
 
 		// Rafraîchir les stats pour ce projet
 		refreshStats();
@@ -175,22 +262,35 @@
 		terminalComponent?.focus();
 	}
 
-	function handleTerminalOutput(text: string) {
-		// Parser l'output pour détecter les fichiers mentionnés par Claude
-		// Pattern pour chemins Windows et Unix
-		const filePatterns = [
-			/(?:Read|Edit|Write|Created?|Modified?|Deleted?|Updated?)[:\s]+["']?([A-Za-z]:\\[^\s"'\n]+|\/[^\s"'\n]+)/gi,
-			/(?:file|fichier)[:\s]+["']?([A-Za-z]:\\[^\s"'\n]+|\/[^\s"'\n]+)/gi
-		];
+	async function handleTerminalOutput(text: string) {
+		// Détecter les fichiers modifiés
+		const detectedFiles = detectModifiedFiles(text);
 
-		for (const pattern of filePatterns) {
-			const matches = text.matchAll(pattern);
-			for (const match of matches) {
-				const filePath = match[1];
-				console.log('[Preview] Detected file:', filePath);
-				// TODO: Lire le fichier et mettre à jour le preview
-				updatePreviewForFile(filePath);
+		// Collecter les fichiers pour checkpoint
+		for (const file of detectedFiles) {
+			if (!pendingFiles.includes(file)) {
+				pendingFiles.push(file);
 			}
+		}
+
+		// Si une action destructive est détectée, créer un checkpoint
+		if (shouldCreateCheckpoint(text) && pendingFiles.length > 0) {
+			const cpId = await createCheckpoint(
+				`Auto: ${pendingFiles.length} fichier(s)`,
+				pendingFiles
+			);
+			if (cpId) {
+				console.log('[Checkpoint] Created:', cpId);
+				checkpointCount = await getCheckpointCount();
+			}
+			pendingFiles = [];
+		}
+
+		// Mettre à jour le preview pour le dernier fichier détecté
+		if (detectedFiles.length > 0) {
+			const lastFile = detectedFiles[detectedFiles.length - 1];
+			console.log('[Preview] Detected file:', lastFile);
+			updatePreviewForFile(lastFile);
 		}
 	}
 
@@ -425,11 +525,29 @@
 		{sessionMessages}
 		{todayMessages}
 		{weeklyMessages}
+		{checkpointCount}
+		onUndo={handleUndo}
+		onShowCheckpoints={handleShowCheckpoints}
+		onCompact={handleCompact}
 	/>
 </div>
 
 <!-- Settings Modal -->
 <SettingsModal isOpen={showSettings} onClose={() => showSettings = false} />
+
+<!-- Command Palette -->
+<CommandPalette
+	isOpen={showCommandPalette}
+	onClose={() => showCommandPalette = false}
+	onOpenFolder={handleOpenFolder}
+	onNewChat={handleNewChat}
+	onSave={handleSave}
+	onUndo={handleUndo}
+	onSettings={() => showSettings = true}
+	onCompact={handleCompact}
+	onClearTerminal={handleClearTerminal}
+	onSendCommand={handleSendCommand}
+/>
 
 <style>
 	.app-container {

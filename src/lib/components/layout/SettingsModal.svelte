@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { X, FolderOpen, Monitor, Palette } from 'lucide-svelte';
+	import { X, FolderOpen, Monitor, Palette, Cpu, Keyboard, Info } from 'lucide-svelte';
 
 	let { isOpen = false, onClose = () => {} } = $props<{
 		isOpen: boolean;
@@ -10,13 +10,18 @@
 	let defaultProjectDir = $state('C:\\Users\\Marc\\projets');
 	let theme = $state<'dark' | 'light'>('dark');
 	let fontSize = $state(14);
+	let claudeModel = $state<'opus' | 'sonnet' | 'haiku'>('opus');
+	let autoCheckpoint = $state(true);
+	let autoCompactWarning = $state(80);
 
 	function handleSave() {
-		// TODO: Persist settings
 		localStorage.setItem('leon_settings', JSON.stringify({
 			defaultProjectDir,
 			theme,
-			fontSize
+			fontSize,
+			claudeModel,
+			autoCheckpoint,
+			autoCompactWarning
 		}));
 		onClose();
 	}
@@ -30,11 +35,23 @@
 				defaultProjectDir = settings.defaultProjectDir || defaultProjectDir;
 				theme = settings.theme || theme;
 				fontSize = settings.fontSize || fontSize;
+				claudeModel = settings.claudeModel || claudeModel;
+				autoCheckpoint = settings.autoCheckpoint ?? autoCheckpoint;
+				autoCompactWarning = settings.autoCompactWarning || autoCompactWarning;
 			} catch (e) {
 				console.error('Error loading settings:', e);
 			}
 		}
 	});
+
+	const shortcuts = [
+		{ keys: 'Ctrl+K', action: 'Command palette' },
+		{ keys: 'Ctrl+O', action: 'Ouvrir un dossier' },
+		{ keys: 'Ctrl+,', action: 'Paramètres' },
+		{ keys: 'Ctrl+Z', action: 'Annuler (checkpoint)' },
+		{ keys: 'Ctrl+C', action: 'Copier sélection terminal' },
+		{ keys: 'Ctrl+V', action: 'Coller dans terminal' }
+	];
 </script>
 
 {#if isOpen}
@@ -48,6 +65,54 @@
 			</div>
 
 			<div class="modal-body">
+				<section class="settings-section">
+					<h3><Cpu size={16} /> Claude</h3>
+					<div class="setting-item">
+						<label>Modèle par défaut</label>
+						<div class="model-buttons">
+							<button
+								class="model-btn"
+								class:active={claudeModel === 'opus'}
+								onclick={() => claudeModel = 'opus'}
+							>
+								Opus
+							</button>
+							<button
+								class="model-btn"
+								class:active={claudeModel === 'sonnet'}
+								onclick={() => claudeModel = 'sonnet'}
+							>
+								Sonnet
+							</button>
+							<button
+								class="model-btn"
+								class:active={claudeModel === 'haiku'}
+								onclick={() => claudeModel = 'haiku'}
+							>
+								Haiku
+							</button>
+						</div>
+					</div>
+					<div class="setting-item">
+						<label for="compactWarning">Alerte contexte à (%)</label>
+						<input
+							id="compactWarning"
+							type="number"
+							bind:value={autoCompactWarning}
+							min="50"
+							max="95"
+						/>
+					</div>
+					<div class="setting-item checkbox-item">
+						<input
+							id="autoCheckpoint"
+							type="checkbox"
+							bind:checked={autoCheckpoint}
+						/>
+						<label for="autoCheckpoint">Checkpoints automatiques avant modifications</label>
+					</div>
+				</section>
+
 				<section class="settings-section">
 					<h3><FolderOpen size={16} /> Projets</h3>
 					<div class="setting-item">
@@ -96,6 +161,27 @@
 								Clair (bientôt)
 							</button>
 						</div>
+					</div>
+				</section>
+
+				<section class="settings-section">
+					<h3><Keyboard size={16} /> Raccourcis</h3>
+					<div class="shortcuts-list">
+						{#each shortcuts as shortcut}
+							<div class="shortcut-item">
+								<kbd>{shortcut.keys}</kbd>
+								<span>{shortcut.action}</span>
+							</div>
+						{/each}
+					</div>
+				</section>
+
+				<section class="settings-section">
+					<h3><Info size={16} /> À propos</h3>
+					<div class="about-info">
+						<p><strong>Léon</strong> - Claude Code Desktop UI</p>
+						<p class="version">v0.1.0 • Tauri 2.9.5 • SvelteKit 5</p>
+						<p class="copyright">© 2025 Marc Zermatten</p>
 					</div>
 				</section>
 			</div>
@@ -285,5 +371,99 @@
 
 	.btn-primary:hover {
 		background: var(--color-lion-500);
+	}
+
+	.model-buttons {
+		display: flex;
+		gap: 0.5rem;
+	}
+
+	.model-btn {
+		flex: 1;
+		padding: 0.5rem 1rem;
+		background: var(--color-bg-primary);
+		border: 1px solid var(--color-border);
+		border-radius: 6px;
+		color: var(--color-text-secondary);
+		cursor: pointer;
+		font-size: 0.875rem;
+		transition: all 0.15s ease;
+	}
+
+	.model-btn:hover {
+		background: var(--color-bg-hover);
+	}
+
+	.model-btn.active {
+		background: var(--color-lion-900);
+		border-color: var(--color-lion-500);
+		color: var(--color-lion-300);
+	}
+
+	.checkbox-item {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+	}
+
+	.checkbox-item input[type="checkbox"] {
+		width: 16px;
+		height: 16px;
+		accent-color: var(--color-lion-500);
+	}
+
+	.checkbox-item label {
+		margin-bottom: 0;
+	}
+
+	.shortcuts-list {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+	}
+
+	.shortcut-item {
+		display: flex;
+		align-items: center;
+		gap: 1rem;
+	}
+
+	.shortcut-item kbd {
+		padding: 0.25rem 0.5rem;
+		background: var(--color-bg-primary);
+		border: 1px solid var(--color-border);
+		border-radius: 4px;
+		font-size: 0.75rem;
+		font-family: 'JetBrains Mono', monospace;
+		color: var(--color-text-muted);
+		min-width: 70px;
+		text-align: center;
+	}
+
+	.shortcut-item span {
+		font-size: 0.875rem;
+		color: var(--color-text-secondary);
+	}
+
+	.about-info {
+		text-align: center;
+		padding: 0.5rem 0;
+	}
+
+	.about-info p {
+		margin: 0.25rem 0;
+		font-size: 0.875rem;
+		color: var(--color-text-primary);
+	}
+
+	.about-info .version {
+		font-size: 0.75rem;
+		color: var(--color-text-muted);
+	}
+
+	.about-info .copyright {
+		font-size: 0.7rem;
+		color: var(--color-text-muted);
+		margin-top: 0.5rem;
 	}
 </style>

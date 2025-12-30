@@ -1,10 +1,11 @@
 mod commands;
 
 use commands::{
-    capture_window, check_claude_available, get_claude_stats, get_claude_version,
-    get_session_id, get_session_stats, is_session_active, kill_pty, list_windows, resize_pty,
-    send_claude_message, start_claude_session, start_pty, stop_claude_session, write_pty,
-    ClaudeRunner, PtyManager,
+    capture_window, check_claude_available, create_checkpoint, get_checkpoint_count,
+    get_claude_stats, get_claude_version, get_session_id, get_session_stats, is_session_active,
+    kill_pty, list_checkpoints, list_windows, resize_pty, restore_checkpoint,
+    send_claude_message, set_checkpoint_project, start_claude_session, start_pty,
+    stop_claude_session, undo_last_change, write_pty, CheckpointManager, ClaudeRunner, PtyManager,
 };
 use std::sync::{Arc, Mutex};
 
@@ -16,6 +17,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .manage(Arc::new(Mutex::new(ClaudeRunner::default())))
         .manage(Arc::new(Mutex::new(PtyManager::default())))
+        .manage(Arc::new(Mutex::new(CheckpointManager::new())))
         .invoke_handler(tauri::generate_handler![
             // Window capture
             list_windows,
@@ -35,7 +37,14 @@ pub fn run() {
             kill_pty,
             // Stats
             get_claude_stats,
-            get_session_stats
+            get_session_stats,
+            // Checkpoints
+            create_checkpoint,
+            undo_last_change,
+            restore_checkpoint,
+            list_checkpoints,
+            get_checkpoint_count,
+            set_checkpoint_project
         ])
         .setup(|app| {
             if cfg!(debug_assertions) {
