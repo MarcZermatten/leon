@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Plus, FolderOpen, MessageSquare, Settings, ChevronRight, Save, Rocket, GitBranch, Files } from 'lucide-svelte';
+	import { Plus, FolderOpen, MessageSquare, Settings, ChevronRight, Save, Rocket, GitBranch, Files, Zap } from 'lucide-svelte';
 
 	interface Session {
 		id: string;
@@ -18,6 +18,7 @@
 		onRelease = () => {},
 		onToggleGit = () => {},
 		onToggleFiles = () => {},
+		onToggleSnippets = () => {},
 		hasActiveProject = false,
 		gitChanges = 0
 	} = $props<{
@@ -30,6 +31,7 @@
 		onRelease: () => void;
 		onToggleGit: () => void;
 		onToggleFiles: () => void;
+		onToggleSnippets: () => void;
 		hasActiveProject: boolean;
 		gitChanges: number;
 	}>();
@@ -86,6 +88,10 @@
 					{#if gitChanges > 0}
 						<span class="git-badge">{gitChanges}</span>
 					{/if}
+				</button>
+				<button class="action-btn snippets-btn" onclick={onToggleSnippets} title="Afficher les snippets (Ctrl+Shift+S)">
+					<Zap size={18} />
+					<span>Snippets</span>
 				</button>
 			</div>
 			<div class="action-buttons">
@@ -282,6 +288,11 @@
 	.files-btn:hover {
 		border-color: var(--color-lion-500);
 		color: var(--color-lion-400);
+	}
+
+	.snippets-btn:hover {
+		border-color: var(--color-warning, #ffa94d);
+		color: var(--color-warning, #ffa94d);
 	}
 
 	.git-btn {

@@ -12,6 +12,7 @@
 	import FileExplorer from '$lib/components/files/FileExplorer.svelte';
 	import QuickActions from '$lib/components/layout/QuickActions.svelte';
 	import OutputOverlay from '$lib/components/terminal/OutputOverlay.svelte';
+	import SnippetsPanel from '$lib/components/layout/SnippetsPanel.svelte';
 	import type { PreviewState, PreviewMode } from '$lib/types/preview';
 	import { defaultPreviewState } from '$lib/types/preview';
 	import { checkClaudeAvailable, getClaudeVersion } from '$lib/services/claude';
@@ -82,6 +83,9 @@
 	let terminalOutput = $state('');
 	let showOutputOverlay = $state(true);
 
+	// Snippets panel state
+	let showSnippetsPanel = $state(false);
+
 	// Computed Git changes count
 	let gitChangesCount = $derived(
 		(gitStatus?.staged.length || 0) +
@@ -122,6 +126,11 @@
 		if (e.ctrlKey && e.key === 'e') {
 			e.preventDefault();
 			handleToggleFiles();
+		}
+		// Ctrl+Shift+S → Snippets
+		if (e.ctrlKey && e.shiftKey && e.key === 'S') {
+			e.preventDefault();
+			handleToggleSnippets();
 		}
 	}
 
@@ -555,6 +564,26 @@
 	function handleCloseOutputOverlay() {
 		showOutputOverlay = false;
 	}
+
+	// Toggle Snippets Panel
+	function handleToggleSnippets() {
+		showSnippetsPanel = !showSnippetsPanel;
+		if (showSnippetsPanel) {
+			// Fermer les autres panels
+			showPreview = false;
+			showPlanPanel = false;
+			showGitPanel = false;
+			showFileExplorer = false;
+		}
+	}
+
+	function handleCloseSnippetsPanel() {
+		showSnippetsPanel = false;
+	}
+
+	function handleExecuteSnippet(command: string) {
+		handleSendCommand(command);
+	}
 </script>
 
 <svelte:window onmousemove={handleMouseMove} onmouseup={stopResize} />
@@ -573,6 +602,7 @@
 				onRelease={handleRelease}
 				onToggleGit={handleToggleGit}
 				onToggleFiles={handleToggleFiles}
+				onToggleSnippets={handleToggleSnippets}
 				hasActiveProject={!!workingDir}
 				gitChanges={gitChangesCount}
 			/>
@@ -680,8 +710,25 @@
 			{/if}
 		</div>
 
+		<!-- Snippets Panel (conditional) -->
+		{#if showSnippetsPanel && workingDir}
+			<div
+				class="resize-handle preview-resize"
+				onmousedown={(e) => startResize('preview', e)}
+				role="separator"
+				aria-orientation="vertical"
+				tabindex="-1"
+			></div>
+
+			<div class="preview-container" style="width: {previewWidth}px">
+				<SnippetsPanel
+					isVisible={showSnippetsPanel}
+					onClose={handleCloseSnippetsPanel}
+					onExecute={handleExecuteSnippet}
+				/>
+			</div>
 		<!-- File Explorer (conditional) -->
-		{#if showFileExplorer && workingDir}
+		{:else if showFileExplorer && workingDir}
 			<div
 				class="resize-handle preview-resize"
 				onmousedown={(e) => startResize('preview', e)}
