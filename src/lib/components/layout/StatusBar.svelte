@@ -1,18 +1,24 @@
 <script lang="ts">
-	import { Circle, Cpu, Hash, Clock, Zap } from 'lucide-svelte';
+	import { Circle, Cpu, Hash, Zap, Database, Calendar } from 'lucide-svelte';
 
 	let {
 		project = 'Aucun projet',
-		model = 'claude-3.5-sonnet',
+		model = 'Claude Code',
 		sessionId = null,
 		tokensUsed = { input: 0, output: 0 },
-		status = 'idle'
+		status = 'idle',
+		contextRemaining = null,
+		sessionUsage = null,
+		weeklyUsage = null
 	} = $props<{
 		project: string;
 		model: string;
 		sessionId: string | null;
 		tokensUsed: { input: number; output: number };
 		status: 'idle' | 'thinking' | 'executing' | 'error';
+		contextRemaining: number | null;
+		sessionUsage: { used: number; limit: number } | null;
+		weeklyUsage: { used: number; limit: number } | null;
 	}>();
 
 	const statusConfig: Record<string, { color: string; label: string }> = {
@@ -26,6 +32,18 @@
 		if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
 		if (n >= 1000) return (n / 1000).toFixed(1) + 'K';
 		return n.toString();
+	}
+
+	function formatPercentage(used: number, limit: number): string {
+		if (limit === 0) return '0%';
+		return Math.round((used / limit) * 100) + '%';
+	}
+
+	function getUsageColor(used: number, limit: number): string {
+		const pct = limit > 0 ? (used / limit) * 100 : 0;
+		if (pct >= 90) return 'var(--color-error)';
+		if (pct >= 70) return 'var(--color-warning, #ffd43b)';
+		return 'var(--color-success, #69db7c)';
 	}
 </script>
 
@@ -48,12 +66,33 @@
 	</div>
 
 	<div class="status-right">
-		<div class="status-item tokens">
-			<Zap size={14} />
-			<span>{formatTokens(tokensUsed.input)} / {formatTokens(tokensUsed.output)}</span>
-		</div>
+		{#if contextRemaining !== null}
+			<div class="status-item context" title="Contexte restant avant auto-compactage">
+				<Database size={14} />
+				<span style="color: {getUsageColor(100 - contextRemaining, 100)}">{contextRemaining}%</span>
+			</div>
+		{/if}
+
+		{#if sessionUsage}
+			<div class="status-item usage" title="Utilisation session">
+				<Zap size={14} />
+				<span style="color: {getUsageColor(sessionUsage.used, sessionUsage.limit)}">
+					{formatPercentage(sessionUsage.used, sessionUsage.limit)}
+				</span>
+			</div>
+		{/if}
+
+		{#if weeklyUsage}
+			<div class="status-item weekly" title="Utilisation semaine">
+				<Calendar size={14} />
+				<span style="color: {getUsageColor(weeklyUsage.used, weeklyUsage.limit)}">
+					{formatPercentage(weeklyUsage.used, weeklyUsage.limit)}
+				</span>
+			</div>
+		{/if}
+
 		{#if sessionId}
-			<div class="status-item session">
+			<div class="status-item session" title="ID Session">
 				<Hash size={14} />
 				<span>{sessionId.slice(0, 8)}</span>
 			</div>
@@ -95,6 +134,7 @@
 		display: flex;
 		align-items: center;
 		gap: 0.375rem;
+		cursor: default;
 	}
 
 	.project-name {
@@ -102,12 +142,15 @@
 		color: var(--color-lion-400);
 	}
 
-	.tokens span {
-		font-family: 'JetBrains Mono', monospace;
+	.context span,
+	.usage span,
+	.weekly span {
+		font-family: 'JetBrains Mono', 'Cascadia Code', monospace;
+		font-weight: 500;
 	}
 
 	.session span {
-		font-family: 'JetBrains Mono', monospace;
+		font-family: 'JetBrains Mono', 'Cascadia Code', monospace;
 		opacity: 0.7;
 	}
 </style>

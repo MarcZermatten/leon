@@ -3,6 +3,7 @@
 	import { Terminal } from '@xterm/xterm';
 	import { FitAddon } from '@xterm/addon-fit';
 	import { WebLinksAddon } from '@xterm/addon-web-links';
+	import { ClipboardAddon } from '@xterm/addon-clipboard';
 	import '@xterm/xterm/css/xterm.css';
 
 	let { workingDir = null, onReady = () => {} } = $props<{
@@ -55,9 +56,29 @@
 		fitAddon = new FitAddon();
 		terminal.loadAddon(fitAddon);
 		terminal.loadAddon(new WebLinksAddon());
+		terminal.loadAddon(new ClipboardAddon());
 
 		terminal.open(terminalContainer);
 		fitAddon.fit();
+
+		// Gérer Ctrl+V pour coller
+		terminal.attachCustomKeyEventHandler((event) => {
+			if (event.ctrlKey && event.key === 'v' && event.type === 'keydown') {
+				navigator.clipboard.readText().then((text) => {
+					if (text) sendToPty(text);
+				});
+				return false; // Empêcher le comportement par défaut
+			}
+			// Ctrl+C pour copier la sélection
+			if (event.ctrlKey && event.key === 'c' && event.type === 'keydown') {
+				const selection = terminal.getSelection();
+				if (selection) {
+					navigator.clipboard.writeText(selection);
+					return false;
+				}
+			}
+			return true;
+		});
 
 		// Observer le resize
 		const resizeObserver = new ResizeObserver(() => {

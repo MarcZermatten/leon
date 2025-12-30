@@ -8,11 +8,18 @@
 		timestamp: Date;
 	}
 
-	let { sessions = [], activeSession = null, onNewChat = () => {}, onSelectSession = (id: string) => {} } = $props<{
+	let {
+		sessions = [],
+		activeSession = null,
+		onNewChat = () => {},
+		onSelectSession = (id: string) => {},
+		onOpenSettings = () => {}
+	} = $props<{
 		sessions: Session[];
 		activeSession: string | null;
 		onNewChat: () => void;
 		onSelectSession: (id: string) => void;
+		onOpenSettings: () => void;
 	}>();
 </script>
 
@@ -55,7 +62,7 @@
 	</nav>
 
 	<div class="sidebar-footer">
-		<button class="settings-btn">
+		<button class="settings-btn" onclick={onOpenSettings}>
 			<Settings size={18} />
 			<span>Paramètres</span>
 		</button>

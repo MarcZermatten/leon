@@ -1,22 +1,36 @@
 <script lang="ts">
-	import { onMount, onDestroy } from 'svelte';
+	import { onMount } from 'svelte';
 	import Sidebar from '$lib/components/layout/Sidebar.svelte';
 	import Terminal from '$lib/components/terminal/Terminal.svelte';
 	import PreviewPanel from '$lib/components/preview/PreviewPanel.svelte';
 	import StatusBar from '$lib/components/layout/StatusBar.svelte';
+	import SettingsModal from '$lib/components/layout/SettingsModal.svelte';
 	import type { PreviewState, PreviewMode } from '$lib/types/preview';
 	import { defaultPreviewState } from '$lib/types/preview';
 	import { checkClaudeAvailable, getClaudeVersion } from '$lib/services/claude';
 	import { FolderOpen } from 'lucide-svelte';
 
+	interface ProjectSession {
+		id: string;
+		name: string;
+		project: string;
+		timestamp: Date;
+	}
+
 	// State
-	let sessionsList = $state<Array<{ id: string; name: string; project: string; timestamp: Date }>>([]);
+	let sessionsList = $state<ProjectSession[]>([]);
 	let activeSession = $state<string | null>(null);
 	let claudeAvailable = $state(false);
 	let claudeVersion = $state<string | null>(null);
 	let workingDir = $state<string | null>(null);
 	let terminalReady = $state(false);
-	let terminalComponent: Terminal;
+	let terminalComponent = $state<Terminal | null>(null);
+	let showSettings = $state(false);
+
+	// Usage stats (placeholder - à connecter avec Claude Code output)
+	let contextRemaining = $state<number | null>(85);
+	let sessionUsage = $state<{ used: number; limit: number } | null>({ used: 45, limit: 100 });
+	let weeklyUsage = $state<{ used: number; limit: number } | null>({ used: 230, limit: 1000 });
 
 	// Preview state
 	let previewState = $state<PreviewState>(defaultPreviewState);
@@ -26,13 +40,42 @@
 	let sidebarWidth = $state(260);
 	let previewWidth = $state(450);
 
+	// LocalStorage key
+	const PROJECTS_KEY = 'leon_recent_projects';
+
 	onMount(async () => {
+		// Charger les projets récents
+		loadRecentProjects();
+
 		// Vérifier si Claude CLI est disponible
 		claudeAvailable = await checkClaudeAvailable();
 		if (claudeAvailable) {
 			claudeVersion = await getClaudeVersion();
 		}
 	});
+
+	function loadRecentProjects() {
+		try {
+			const saved = localStorage.getItem(PROJECTS_KEY);
+			if (saved) {
+				const projects = JSON.parse(saved);
+				sessionsList = projects.map((p: any) => ({
+					...p,
+					timestamp: new Date(p.timestamp)
+				}));
+			}
+		} catch (e) {
+			console.error('Error loading recent projects:', e);
+		}
+	}
+
+	function saveRecentProjects() {
+		try {
+			localStorage.setItem(PROJECTS_KEY, JSON.stringify(sessionsList));
+		} catch (e) {
+			console.error('Error saving recent projects:', e);
+		}
+	}
 
 	// Handlers
 	async function handleOpenFolder() {
@@ -44,26 +87,38 @@
 				title: 'Sélectionner un dossier de projet'
 			});
 			if (selected && typeof selected === 'string') {
-				workingDir = selected;
-				// Ajouter à la liste des sessions
-				const id = crypto.randomUUID();
-				const projectName = selected.split(/[/\\]/).pop() || 'Projet';
-				const newSession = {
-					id,
-					name: projectName,
-					project: selected,
-					timestamp: new Date()
-				};
-				sessionsList = [newSession, ...sessionsList];
-				activeSession = id;
+				openProject(selected);
 			}
 		} catch (e) {
 			console.error('Erreur ouverture dossier:', e);
 		}
 	}
 
+	function openProject(path: string, customName?: string) {
+		workingDir = path;
+
+		// Vérifier si le projet existe déjà
+		const existing = sessionsList.find(s => s.project === path);
+		if (existing) {
+			activeSession = existing.id;
+			return;
+		}
+
+		// Ajouter le nouveau projet
+		const id = crypto.randomUUID();
+		const projectName = customName || path.split(/[/\\]/).pop() || 'Projet';
+		const newSession: ProjectSession = {
+			id,
+			name: projectName,
+			project: path,
+			timestamp: new Date()
+		};
+		sessionsList = [newSession, ...sessionsList.slice(0, 9)]; // Garder max 10
+		activeSession = id;
+		saveRecentProjects();
+	}
+
 	function handleNewChat() {
-		// Reset le terminal avec un nouveau projet
 		handleOpenFolder();
 	}
 
@@ -75,9 +130,20 @@
 		}
 	}
 
+	function handleRenameProject(id: string, newName: string) {
+		sessionsList = sessionsList.map(s =>
+			s.id === id ? { ...s, name: newName } : s
+		);
+		saveRecentProjects();
+	}
+
 	function handleTerminalReady() {
 		terminalReady = true;
 		terminalComponent?.focus();
+	}
+
+	function handleOpenSettings() {
+		showSettings = true;
 	}
 
 	function closePreview() {
@@ -126,6 +192,14 @@
 			document.body.style.userSelect = '';
 		}
 	}
+
+	// Double-click pour renommer
+	function handleDoubleClickSession(session: ProjectSession) {
+		const newName = prompt('Renommer le projet:', session.name);
+		if (newName && newName.trim()) {
+			handleRenameProject(session.id, newName.trim());
+		}
+	}
 </script>
 
 <svelte:window onmousemove={handleMouseMove} onmouseup={stopResize} />
@@ -139,6 +213,7 @@
 				{activeSession}
 				onNewChat={handleNewChat}
 				onSelectSession={handleSelectSession}
+				onOpenSettings={handleOpenSettings}
 			/>
 		</div>
 
@@ -148,6 +223,7 @@
 			onmousedown={(e) => startResize('sidebar', e)}
 			role="separator"
 			aria-orientation="vertical"
+			tabindex="-1"
 		></div>
 
 		<!-- Terminal -->
@@ -155,6 +231,12 @@
 			{#if workingDir}
 				<div class="terminal-header">
 					<span class="project-path">{workingDir}</span>
+					<button class="rename-btn" onclick={() => {
+						const session = sessionsList.find(s => s.project === workingDir);
+						if (session) handleDoubleClickSession(session);
+					}}>
+						Renommer
+					</button>
 				</div>
 				{#key workingDir}
 					<Terminal
@@ -184,8 +266,24 @@
 
 					<button class="open-folder-btn" onclick={handleOpenFolder} disabled={!claudeAvailable}>
 						<FolderOpen size={20} />
-						<span>Ouvrir un projet</span>
+						<span>Ouvrir un dossier</span>
 					</button>
+
+					{#if sessionsList.length > 0}
+						<div class="recent-projects">
+							<h3>Projets récents</h3>
+							<ul>
+								{#each sessionsList.slice(0, 5) as session (session.id)}
+									<li>
+										<button onclick={() => handleSelectSession(session.id)}>
+											<span class="session-name">{session.name}</span>
+											<span class="session-path">{session.project}</span>
+										</button>
+									</li>
+								{/each}
+							</ul>
+						</div>
+					{/if}
 				</div>
 			{/if}
 		</div>
@@ -198,6 +296,7 @@
 				onmousedown={(e) => startResize('preview', e)}
 				role="separator"
 				aria-orientation="vertical"
+				tabindex="-1"
 			></div>
 
 			<div class="preview-container" style="width: {previewWidth}px">
@@ -218,8 +317,14 @@
 		sessionId={activeSession}
 		tokensUsed={{ input: 0, output: 0 }}
 		status={terminalReady ? 'idle' : 'thinking'}
+		{contextRemaining}
+		{sessionUsage}
+		{weeklyUsage}
 	/>
 </div>
+
+<!-- Settings Modal -->
+<SettingsModal isOpen={showSettings} onClose={() => showSettings = false} />
 
 <style>
 	.app-container {
@@ -250,6 +355,9 @@
 	}
 
 	.terminal-header {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
 		padding: 8px 12px;
 		background-color: #252525;
 		border-bottom: 1px solid var(--color-border);
@@ -259,6 +367,21 @@
 
 	.project-path {
 		font-family: monospace;
+	}
+
+	.rename-btn {
+		padding: 2px 8px;
+		font-size: 0.7rem;
+		background: var(--color-bg-hover);
+		border: 1px solid var(--color-border);
+		border-radius: 4px;
+		color: var(--color-text-secondary);
+		cursor: pointer;
+	}
+
+	.rename-btn:hover {
+		background: var(--color-lion-900);
+		color: var(--color-lion-300);
 	}
 
 	.preview-container {
@@ -366,5 +489,59 @@
 	.open-folder-btn:disabled {
 		opacity: 0.5;
 		cursor: not-allowed;
+	}
+
+	/* Recent projects */
+	.recent-projects {
+		margin-top: 2rem;
+		text-align: left;
+		width: 100%;
+		max-width: 400px;
+	}
+
+	.recent-projects h3 {
+		font-size: 0.875rem;
+		font-weight: 600;
+		color: var(--color-text-secondary);
+		margin: 0 0 0.75rem 0;
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+	}
+
+	.recent-projects ul {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+	}
+
+	.recent-projects li button {
+		display: flex;
+		flex-direction: column;
+		width: 100%;
+		padding: 0.75rem;
+		background: var(--color-bg-secondary);
+		border: 1px solid var(--color-border);
+		border-radius: 6px;
+		cursor: pointer;
+		text-align: left;
+		margin-bottom: 0.5rem;
+		transition: all 0.15s;
+	}
+
+	.recent-projects li button:hover {
+		background: var(--color-bg-hover);
+		border-color: var(--color-lion-500);
+	}
+
+	.session-name {
+		font-weight: 500;
+		color: var(--color-text-primary);
+	}
+
+	.session-path {
+		font-size: 0.75rem;
+		color: var(--color-text-muted);
+		font-family: monospace;
+		margin-top: 0.25rem;
 	}
 </style>
