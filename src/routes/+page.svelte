@@ -6,6 +6,8 @@
 	import StatusBar from '$lib/components/layout/StatusBar.svelte';
 	import SettingsModal from '$lib/components/layout/SettingsModal.svelte';
 	import CommandPalette from '$lib/components/layout/CommandPalette.svelte';
+	import PlanPanel from '$lib/components/plan/PlanPanel.svelte';
+	import SessionSelector from '$lib/components/layout/SessionSelector.svelte';
 	import type { PreviewState, PreviewMode } from '$lib/types/preview';
 	import { defaultPreviewState } from '$lib/types/preview';
 	import { checkClaudeAvailable, getClaudeVersion } from '$lib/services/claude';
@@ -18,7 +20,7 @@
 		detectModifiedFiles,
 		shouldCreateCheckpoint
 	} from '$lib/services/checkpoints';
-	import { FolderOpen } from 'lucide-svelte';
+	import { FolderOpen, RotateCcw, Plus } from 'lucide-svelte';
 
 	interface ProjectSession {
 		id: string;
@@ -47,6 +49,9 @@
 	let checkpointCount = $state(0);
 	let pendingFiles: string[] = [];
 
+	// Session Claude active (pour --resume)
+	let activeClaudeSessionId = $state<string | null>(null);
+
 	// Computed stats for StatusBar
 	let contextUsedPercent = $derived(sessionStats ? sessionStats.context_used_percent : null);
 	let sessionMessages = $derived(sessionStats ? sessionStats.message_count : null);
@@ -56,6 +61,10 @@
 	// Preview state
 	let previewState = $state<PreviewState>(defaultPreviewState);
 	let showPreview = $state(true);
+
+	// Plan panel state
+	let showPlanPanel = $state(false);
+	let planPanelComponent = $state<PlanPanel | null>(null);
 
 	// Panel widths
 	let sidebarWidth = $state(260);
@@ -286,6 +295,12 @@
 			pendingFiles = [];
 		}
 
+		// Détecter si Claude affiche un plan
+		if (planPanelComponent && planPanelComponent.parsePlanFromText(text)) {
+			showPlanPanel = true;
+			console.log('[Plan] Detected plan in output');
+		}
+
 		// Mettre à jour le preview pour le dernier fichier détecté
 		if (detectedFiles.length > 0) {
 			const lastFile = detectedFiles[detectedFiles.length - 1];
@@ -400,6 +415,35 @@
 			terminalComponent.sendText(releaseCommand);
 		}
 	}
+
+	// Session Resume - Reprendre une session Claude Code précédente
+	function handleResumeClaudeSession(sessionId: string) {
+		activeClaudeSessionId = sessionId;
+		console.log('[Session] Resuming session:', sessionId);
+
+		// Envoyer commande pour reprendre la session
+		if (terminalComponent && workingDir) {
+			// Tuer la session existante et en démarrer une nouvelle avec --resume
+			terminalComponent.sendText('\x03'); // Ctrl+C pour arrêter
+			setTimeout(() => {
+				terminalComponent?.sendText(`claude --resume ${sessionId}\n`);
+			}, 500);
+		}
+	}
+
+	// Nouvelle session Claude (sans resume)
+	function handleNewClaudeSession() {
+		activeClaudeSessionId = null;
+		console.log('[Session] Starting new session');
+
+		if (terminalComponent && workingDir) {
+			// Tuer la session existante et en démarrer une nouvelle
+			terminalComponent.sendText('\x03'); // Ctrl+C
+			setTimeout(() => {
+				terminalComponent?.sendText('claude\n');
+			}, 500);
+		}
+	}
 </script>
 
 <svelte:window onmousemove={handleMouseMove} onmouseup={stopResize} />
@@ -433,13 +477,28 @@
 		<div class="terminal-container">
 			{#if workingDir}
 				<div class="terminal-header">
-					<span class="project-path">{workingDir}</span>
-					<button class="rename-btn" onclick={() => {
-						const session = sessionsList.find(s => s.project === workingDir);
-						if (session) handleDoubleClickSession(session);
-					}}>
-						Renommer
-					</button>
+					<div class="header-left">
+						<span class="project-path">{workingDir}</span>
+						<button class="rename-btn" onclick={() => {
+							const session = sessionsList.find(s => s.project === workingDir);
+							if (session) handleDoubleClickSession(session);
+						}}>
+							Renommer
+						</button>
+					</div>
+					<div class="header-right">
+						{#if activeClaudeSessionId}
+							<span class="session-badge" title="Session active">
+								<RotateCcw size={10} />
+								{activeClaudeSessionId.slice(0, 8)}...
+							</span>
+						{/if}
+						<SessionSelector
+							projectPath={workingDir}
+							onSelectSession={handleResumeClaudeSession}
+							onNewSession={handleNewClaudeSession}
+						/>
+					</div>
 				</div>
 				{#key workingDir}
 					<TerminalTabs
@@ -492,8 +551,25 @@
 			{/if}
 		</div>
 
+		<!-- Plan Panel (conditional) -->
+		{#if showPlanPanel && workingDir}
+			<div
+				class="resize-handle preview-resize"
+				onmousedown={(e) => startResize('preview', e)}
+				role="separator"
+				aria-orientation="vertical"
+				tabindex="-1"
+			></div>
+
+			<div class="preview-container" style="width: {previewWidth}px">
+				<PlanPanel
+					bind:this={planPanelComponent}
+					isVisible={showPlanPanel}
+					onClose={() => showPlanPanel = false}
+				/>
+			</div>
 		<!-- Preview (conditional) -->
-		{#if showPreview && workingDir}
+		{:else if showPreview && workingDir}
 			<!-- Resize handle preview -->
 			<div
 				class="resize-handle preview-resize"
@@ -588,8 +664,33 @@
 		color: var(--color-text-secondary);
 	}
 
+	.header-left {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+	}
+
+	.header-right {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+	}
+
 	.project-path {
 		font-family: monospace;
+	}
+
+	.session-badge {
+		display: flex;
+		align-items: center;
+		gap: 0.25rem;
+		padding: 0.125rem 0.375rem;
+		background: var(--color-lion-900);
+		border: 1px solid var(--color-lion-700);
+		border-radius: 4px;
+		font-size: 0.65rem;
+		font-family: 'JetBrains Mono', monospace;
+		color: var(--color-lion-300);
 	}
 
 	.rename-btn {
