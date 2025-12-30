@@ -507,6 +507,8 @@
 			// Fermer les autres panels
 			showPreview = false;
 			showPlanPanel = false;
+			showSnippetsPanel = false;
+			showFileExplorer = false;
 			refreshGitStatus();
 		}
 	}
@@ -531,6 +533,7 @@
 			showPreview = false;
 			showPlanPanel = false;
 			showGitPanel = false;
+			showSnippetsPanel = false;
 		}
 	}
 
