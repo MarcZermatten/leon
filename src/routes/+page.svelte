@@ -11,6 +11,7 @@
 	import GitPanel from '$lib/components/git/GitPanel.svelte';
 	import FileExplorer from '$lib/components/files/FileExplorer.svelte';
 	import QuickActions from '$lib/components/layout/QuickActions.svelte';
+	import OutputOverlay from '$lib/components/terminal/OutputOverlay.svelte';
 	import type { PreviewState, PreviewMode } from '$lib/types/preview';
 	import { defaultPreviewState } from '$lib/types/preview';
 	import { checkClaudeAvailable, getClaudeVersion } from '$lib/services/claude';
@@ -76,6 +77,10 @@
 
 	// File explorer state
 	let showFileExplorer = $state(false);
+
+	// Output overlay state
+	let terminalOutput = $state('');
+	let showOutputOverlay = $state(true);
 
 	// Computed Git changes count
 	let gitChangesCount = $derived(
@@ -353,6 +358,9 @@
 			console.log('[Preview] Detected file:', lastFile);
 			updatePreviewForFile(lastFile);
 		}
+
+		// Collecter l'output pour l'analyse (garder les 5000 derniers caractères)
+		terminalOutput = (terminalOutput + text).slice(-5000);
 	}
 
 	async function updatePreviewForFile(filePath: string) {
@@ -526,6 +534,27 @@
 		showFileExplorer = false;
 		showPreview = true;
 	}
+
+	// Output overlay handlers
+	function handleOutputFileClick(path: string, line?: number) {
+		// Construire le chemin complet si relatif
+		const fullPath = path.startsWith('/') || path.includes(':')
+			? path
+			: `${workingDir}/${path}`;
+		updatePreviewForFile(fullPath);
+		showFileExplorer = false;
+		showGitPanel = false;
+		showPreview = true;
+	}
+
+	function handleOutputUrlClick(url: string) {
+		// Ouvrir dans le navigateur par défaut
+		window.open(url, '_blank');
+	}
+
+	function handleCloseOutputOverlay() {
+		showOutputOverlay = false;
+	}
 </script>
 
 <svelte:window onmousemove={handleMouseMove} onmouseup={stopResize} />
@@ -591,14 +620,23 @@
 					contextUsedPercent={contextUsedPercent || 0}
 					onSendCommand={handleSendCommand}
 				/>
-				{#key workingDir}
-					<TerminalTabs
-						bind:this={terminalComponent}
-						{workingDir}
-						onReady={handleTerminalReady}
-						onOutput={handleTerminalOutput}
+				<div class="terminal-wrapper">
+					{#key workingDir}
+						<TerminalTabs
+							bind:this={terminalComponent}
+							{workingDir}
+							onReady={handleTerminalReady}
+							onOutput={handleTerminalOutput}
+						/>
+					{/key}
+					<OutputOverlay
+						output={terminalOutput}
+						isVisible={showOutputOverlay}
+						onFileClick={handleOutputFileClick}
+						onUrlClick={handleOutputUrlClick}
+						onClose={handleCloseOutputOverlay}
 					/>
-				{/key}
+				</div>
 			{:else}
 				<div class="welcome-screen">
 					<img src="/images/logo.png" alt="Léon" class="welcome-logo" />
@@ -778,6 +816,14 @@
 		display: flex;
 		flex-direction: column;
 		background-color: #1a1a1a;
+	}
+
+	.terminal-wrapper {
+		flex: 1;
+		position: relative;
+		display: flex;
+		flex-direction: column;
+		min-height: 0;
 	}
 
 	.terminal-header {
