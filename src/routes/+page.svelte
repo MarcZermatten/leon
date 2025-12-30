@@ -10,6 +10,7 @@
 	import SessionSelector from '$lib/components/layout/SessionSelector.svelte';
 	import GitPanel from '$lib/components/git/GitPanel.svelte';
 	import FileExplorer from '$lib/components/files/FileExplorer.svelte';
+	import QuickActions from '$lib/components/layout/QuickActions.svelte';
 	import type { PreviewState, PreviewMode } from '$lib/types/preview';
 	import { defaultPreviewState } from '$lib/types/preview';
 	import { checkClaudeAvailable, getClaudeVersion } from '$lib/services/claude';
@@ -584,6 +585,12 @@
 						/>
 					</div>
 				</div>
+				<QuickActions
+					projectPath={workingDir}
+					hasGitChanges={gitChangesCount > 0}
+					contextUsedPercent={contextUsedPercent || 0}
+					onSendCommand={handleSendCommand}
+				/>
 				{#key workingDir}
 					<TerminalTabs
 						bind:this={terminalComponent}
