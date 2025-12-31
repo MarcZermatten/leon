@@ -502,15 +502,21 @@ npm-debug.log*
 			await openProject(projectPath, projectName.trim(), true);
 			console.log('[NewProject] Project opened successfully');
 
-			// Attendre que le terminal soit prêt, puis lancer la planification
-			setTimeout(() => {
-				if (terminalComponent) {
+			// Attendre que le terminal soit vraiment prêt
+			if (terminalComponent) {
+				console.log('[NewProject] Waiting for terminal ready...');
+				const ready = await terminalComponent.waitForTerminalReady(5000);
+
+				if (ready) {
+					console.log('[NewProject] Terminal ready, initializing git...');
 					// Initialiser git d'abord
 					terminalComponent.sendText('git init\n');
 
-					// Attendre un peu puis lancer Claude Code avec le prompt de planification
-					setTimeout(() => {
-						const planningPrompt = `Tu es dans un nouveau projet "${projectName.trim()}" qui vient d'être créé.
+					// Attendre un peu pour que git init soit terminé
+					await new Promise(resolve => setTimeout(resolve, 1000));
+
+					console.log('[NewProject] Launching planning prompt...');
+					const planningPrompt = `Tu es dans un nouveau projet "${projectName.trim()}" qui vient d'être créé.
 
 CONTEXTE:
 - Ce projet est géré par Léon (GUI pour Claude Code)
@@ -532,10 +538,16 @@ Après mes réponses, tu proposeras:
 
 Commence par me poser la première question !`;
 
-						terminalComponent?.sendText(planningPrompt + '\n');
-					}, 1500);
+					terminalComponent.sendText(planningPrompt + '\n');
+				} else {
+					console.error('[NewProject] Terminal not ready after timeout');
+					await showAlert({
+						title: 'Avertissement',
+						message: 'Le terminal n\'a pas pu démarrer. Essayez de fermer et rouvrir le projet.',
+						variant: 'warning'
+					});
 				}
-			}, 1000);
+			}
 
 		} catch (e) {
 			console.error('Erreur création projet:', e);

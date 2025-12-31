@@ -238,6 +238,11 @@
 		sendToPty(text);
 		terminal?.focus();
 	}
+
+	// Méthode publique pour vérifier si le terminal est prêt (PTY démarré)
+	export function isReady(): boolean {
+		return ptyId !== null;
+	}
 </script>
 
 <div class="terminal-wrapper" bind:this={terminalContainer}></div>

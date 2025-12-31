@@ -147,6 +147,35 @@
 	export function getTabCount(): number {
 		return tabs.length;
 	}
+
+	// Méthode pour attendre que le terminal actif soit prêt (binding + PTY)
+	export function waitForTerminalReady(timeout = 5000): Promise<boolean> {
+		return new Promise((resolve) => {
+			const startTime = Date.now();
+			const checkReady = () => {
+				if (!activeTabId) {
+					resolve(false);
+					return;
+				}
+				const index = tabs.findIndex(t => t.id === activeTabId);
+				const term = terminals[index];
+				// Vérifier si le terminal existe ET si le PTY est prêt
+				if (term && typeof term.sendText === 'function' && typeof term.isReady === 'function' && term.isReady()) {
+					console.log('[TerminalTabs] Terminal and PTY are ready');
+					resolve(true);
+					return;
+				}
+				if (Date.now() - startTime > timeout) {
+					console.error('[TerminalTabs] Timeout waiting for terminal ready');
+					resolve(false);
+					return;
+				}
+				setTimeout(checkReady, 100);
+			};
+			// Donner le temps au binding Svelte de s'effectuer
+			setTimeout(checkReady, 200);
+		});
+	}
 </script>
 
 <div class="terminal-tabs-container">
