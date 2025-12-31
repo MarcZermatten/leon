@@ -73,8 +73,13 @@
 		isLoading = false;
 	}
 
-	function openExternal() {
-		window.open(urlInput, '_blank');
+	async function openExternal() {
+		try {
+			const { open } = await import('@tauri-apps/plugin-shell');
+			await open(urlInput);
+		} catch (e) {
+			console.error('Error opening URL:', e);
+		}
 	}
 </script>
 

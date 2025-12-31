@@ -785,9 +785,14 @@ Commence par me poser la première question !`;
 		showPreview = true;
 	}
 
-	function handleOutputUrlClick(url: string) {
-		// Ouvrir dans le navigateur par défaut
-		window.open(url, '_blank');
+	async function handleOutputUrlClick(url: string) {
+		// Ouvrir dans le navigateur par défaut via Tauri
+		try {
+			const { open } = await import('@tauri-apps/plugin-shell');
+			await open(url);
+		} catch (e) {
+			console.error('Error opening URL:', e);
+		}
 	}
 
 	function handleCloseOutputOverlay() {
@@ -1035,22 +1040,26 @@ Commence par me poser la première question !`;
 					contextUsedPercent={contextUsedPercent || 0}
 					onSendCommand={handleSendCommand}
 				/>
-				<div class="terminal-wrapper">
-					<TerminalTabs
-						bind:this={terminalComponent}
-						onReady={handleTerminalReady}
-						onOutput={handleTerminalOutput}
-						onActiveProjectChange={handleActiveProjectChange}
-					/>
-					<OutputOverlay
-						output={terminalOutput}
-						isVisible={showOutputOverlay}
-						onFileClick={handleOutputFileClick}
-						onUrlClick={handleOutputUrlClick}
-						onClose={handleCloseOutputOverlay}
-					/>
-				</div>
-			{:else}
+			{/if}
+
+			<!-- TerminalTabs toujours rendu (même si caché) pour pouvoir appeler ses méthodes -->
+			<div class="terminal-wrapper" class:hidden={!workingDir}>
+				<TerminalTabs
+					bind:this={terminalComponent}
+					onReady={handleTerminalReady}
+					onOutput={handleTerminalOutput}
+					onActiveProjectChange={handleActiveProjectChange}
+				/>
+				<OutputOverlay
+					output={terminalOutput}
+					isVisible={showOutputOverlay}
+					onFileClick={handleOutputFileClick}
+					onUrlClick={handleOutputUrlClick}
+					onClose={handleCloseOutputOverlay}
+				/>
+			</div>
+
+			{#if !workingDir}
 				<div class="welcome-screen">
 					<img src="/images/logo.png" alt="Léon" class="welcome-logo" />
 					<h1>Bienvenue dans Léon</h1>
@@ -1638,5 +1647,11 @@ Commence par me poser la première question !`;
 	.btn-primary:disabled {
 		opacity: 0.5;
 		cursor: not-allowed;
+	}
+
+	.terminal-wrapper.hidden {
+		position: absolute;
+		left: -9999px;
+		visibility: hidden;
 	}
 </style>
