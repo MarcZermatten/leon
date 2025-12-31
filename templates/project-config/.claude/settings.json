@@ -32,9 +32,9 @@
       "Edit(**/.env*)"
     ],
     "allow": [
-      "Read({{PROJECT_PATH}}\\**)",
-      "Write({{PROJECT_PATH}}\\**)",
-      "Edit({{PROJECT_PATH}}\\**)",
+      "Read({{PROJECT_PATH}}/**)",
+      "Write({{PROJECT_PATH}}/**)",
+      "Edit({{PROJECT_PATH}}/**)",
       "Bash(git:*)",
       "Bash(npm:*)",
       "Bash(cargo:*)",

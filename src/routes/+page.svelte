@@ -116,6 +116,9 @@
 	// LocalStorage key
 	const PROJECTS_KEY = 'leon_recent_projects';
 
+	// Dossier par défaut pour les projets Léon
+	const LEON_PROJECTS_DIR = 'C:\\Users\\Marc\\Leon\\projets';
+
 	// Raccourcis clavier globaux
 	function handleGlobalKeydown(e: KeyboardEvent) {
 		// Ctrl+K → Command Palette
@@ -401,27 +404,30 @@
 
 	async function handleNewProject() {
 		try {
-			const { open } = await import('@tauri-apps/plugin-dialog');
-
 			// Demander le nom du projet
 			const projectName = prompt('Nom du nouveau projet:');
 			if (!projectName || !projectName.trim()) return;
 
-			// Demander où créer le projet
-			const parentDir = await open({
-				directory: true,
-				multiple: false,
-				title: 'Choisir où créer le projet'
-			});
+			// Créer le dossier Léon s'il n'existe pas
+			const { mkdir, writeTextFile, exists } = await import('@tauri-apps/plugin-fs');
 
-			if (!parentDir || typeof parentDir !== 'string') return;
+			// Vérifier et créer le dossier parent
+			try {
+				const dirExists = await exists(LEON_PROJECTS_DIR);
+				if (!dirExists) {
+					await mkdir(LEON_PROJECTS_DIR, { recursive: true });
+					console.log('[Leon] Created projects directory:', LEON_PROJECTS_DIR);
+				}
+			} catch (e) {
+				console.log('[Leon] Creating projects directory...');
+				await mkdir(LEON_PROJECTS_DIR, { recursive: true });
+			}
 
 			// Créer le chemin complet
 			const safeName = projectName.trim().replace(/[<>:"/\\|?*]/g, '_');
-			const projectPath = `${parentDir}/${safeName}`;
+			const projectPath = `${LEON_PROJECTS_DIR}\\${safeName}`;
 
-			// Créer le dossier et fichiers initiaux
-			const { mkdir, writeTextFile } = await import('@tauri-apps/plugin-fs');
+			// Créer le dossier du projet
 			await mkdir(projectPath, { recursive: true });
 
 			// Créer README.md
