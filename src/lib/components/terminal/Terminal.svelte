@@ -23,6 +23,10 @@
 	let unlistenData: (() => void) | null = null;
 	let unlistenExit: (() => void) | null = null;
 	let resizeObserver: ResizeObserver | null = null;
+	let resizeDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+	let lastCols = 0;
+	let lastRows = 0;
+	let isResizing = false;
 
 	onMount(async () => {
 		// Créer le terminal xterm.js
@@ -67,6 +71,10 @@
 		terminal.open(terminalContainer);
 		fitAddon.fit();
 
+		// Mémoriser les dimensions initiales
+		lastCols = terminal.cols;
+		lastRows = terminal.rows;
+
 		// Gérer Ctrl+V pour coller
 		terminal.attachCustomKeyEventHandler((event) => {
 			if (event.ctrlKey && event.key === 'v' && event.type === 'keydown') {
@@ -86,12 +94,34 @@
 			return true;
 		});
 
-		// Observer le resize
+		// Observer le resize avec debounce pour éviter le scintillement
 		resizeObserver = new ResizeObserver(() => {
-			fitAddon.fit();
-			if (ptyId) {
-				resizePty();
-			}
+			if (isResizing) return;
+
+			// Debounce le resize pour éviter les appels multiples
+			if (resizeDebounceTimer) clearTimeout(resizeDebounceTimer);
+			resizeDebounceTimer = setTimeout(() => {
+				requestAnimationFrame(() => {
+					if (!terminal || !fitAddon) return;
+
+					isResizing = true;
+					try {
+						fitAddon.fit();
+
+						// Vérifier si les dimensions ont vraiment changé
+						if (terminal.cols !== lastCols || terminal.rows !== lastRows) {
+							lastCols = terminal.cols;
+							lastRows = terminal.rows;
+							if (ptyId) {
+								resizePty();
+							}
+						}
+					} finally {
+						// Petit délai pour éviter les boucles de resize
+						setTimeout(() => { isResizing = false; }, 50);
+					}
+				});
+			}, 100);
 		});
 		resizeObserver.observe(terminalContainer);
 
@@ -108,6 +138,7 @@
 
 	onDestroy(async () => {
 		if (outputDebounceTimer) clearTimeout(outputDebounceTimer);
+		if (resizeDebounceTimer) clearTimeout(resizeDebounceTimer);
 		if (resizeObserver) resizeObserver.disconnect();
 		if (unlistenData) unlistenData();
 		if (unlistenExit) unlistenExit();
