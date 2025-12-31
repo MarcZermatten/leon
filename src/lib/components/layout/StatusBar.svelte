@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Circle, Cpu, Hash, Zap, Calendar, Undo2, History } from 'lucide-svelte';
+	import { Circle, Cpu, Hash, Zap, Calendar, Undo2, History, Bot, Loader2 } from 'lucide-svelte';
 	import ContextGauge from './ContextGauge.svelte';
 
 	let {
@@ -13,9 +13,12 @@
 		todayMessages = null,
 		weeklyMessages = null,
 		checkpointCount = 0,
+		activeAgents = 0,
+		totalAgents = 0,
 		onUndo = () => {},
 		onShowCheckpoints = () => {},
-		onCompact = () => {}
+		onCompact = () => {},
+		onShowAgents = () => {}
 	} = $props<{
 		project: string;
 		model: string;
@@ -27,9 +30,12 @@
 		todayMessages: number | null;
 		weeklyMessages: number | null;
 		checkpointCount: number;
+		activeAgents: number;
+		totalAgents: number;
 		onUndo: () => void;
 		onShowCheckpoints: () => void;
 		onCompact: () => void;
+		onShowAgents: () => void;
 	}>();
 
 	const statusConfig: Record<string, { color: string; label: string }> = {
@@ -56,6 +62,21 @@
 			<Cpu size={14} />
 			<span>{model}</span>
 		</div>
+		{#if activeAgents > 0 || totalAgents > 0}
+			<button
+				class="status-btn agents"
+				class:active={activeAgents > 0}
+				title="Agents: {activeAgents} actifs / {totalAgents} total"
+				onclick={onShowAgents}
+			>
+				{#if activeAgents > 0}
+					<Loader2 size={14} class="spin" />
+				{:else}
+					<Bot size={14} />
+				{/if}
+				<span>{activeAgents > 0 ? activeAgents : totalAgents}</span>
+			</button>
+		{/if}
 		{#if checkpointCount > 0}
 			<button
 				class="status-btn undo"
@@ -205,5 +226,29 @@
 	.status-btn.history span {
 		font-family: 'JetBrains Mono', 'Cascadia Code', monospace;
 		font-weight: 600;
+	}
+
+	.status-btn.agents {
+		gap: 0.375rem;
+	}
+
+	.status-btn.agents.active {
+		border-color: var(--color-lion-500);
+		color: var(--color-lion-400);
+		background: var(--color-lion-900);
+	}
+
+	.status-btn.agents span {
+		font-family: 'JetBrains Mono', 'Cascadia Code', monospace;
+		font-weight: 600;
+	}
+
+	:global(.spin) {
+		animation: spin 1s linear infinite;
+	}
+
+	@keyframes spin {
+		from { transform: rotate(0deg); }
+		to { transform: rotate(360deg); }
 	}
 </style>
