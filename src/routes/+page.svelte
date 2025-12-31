@@ -430,8 +430,8 @@
 			// Créer le dossier du projet
 			await mkdir(projectPath, { recursive: true });
 
-			// Créer README.md
-			await writeTextFile(`${projectPath}/README.md`, `# ${projectName.trim()}\n\nProjet créé avec Léon.\n`);
+			// Créer README.md minimal
+			await writeTextFile(`${projectPath}/README.md`, `# ${projectName.trim()}\n\nProjet en cours de planification avec Léon.\n`);
 
 			// Créer .gitignore basique
 			const gitignore = `# Dependencies
@@ -483,10 +483,38 @@ npm-debug.log*
 			// Ouvrir le projet (skip la vérification car on vient de l'initialiser)
 			await openProject(projectPath, projectName.trim(), true);
 
-			// Attendre que le terminal soit prêt, puis initialiser git
+			// Attendre que le terminal soit prêt, puis lancer la planification
 			setTimeout(() => {
 				if (terminalComponent) {
-					terminalComponent.sendText(`git init && git add -A && git commit -m "Initial commit - Created with Léon"\n`);
+					// Initialiser git d'abord
+					terminalComponent.sendText('git init\n');
+
+					// Attendre un peu puis lancer Claude Code avec le prompt de planification
+					setTimeout(() => {
+						const planningPrompt = `Tu es dans un nouveau projet "${projectName.trim()}" qui vient d'être créé.
+
+CONTEXTE:
+- Ce projet est géré par Léon (GUI pour Claude Code)
+- Tu as accès à tous les agents (code-reviewer, bug-hunter, test-writer, etc.)
+- Tu as les commandes /save et /checkpoint
+- Le projet sera sauvegardé dans ${projectPath}
+
+MISSION:
+Aide-moi à planifier ce projet. Pose-moi des questions pour comprendre:
+1. Quel TYPE de projet ? (web app, CLI, API, library, desktop, mobile, script, autre)
+2. Quelles TECHNOLOGIES ? (langages, frameworks, base de données)
+3. Quelle ARCHITECTURE ? (monolithique, microservices, serverless)
+4. Quelles FONCTIONNALITÉS principales ?
+
+Après mes réponses, tu proposeras:
+- Une structure de dossiers adaptée
+- Les fichiers de configuration nécessaires
+- Un plan d'implémentation étape par étape
+
+Commence par me poser la première question !`;
+
+						terminalComponent?.sendText(planningPrompt + '\n');
+					}, 1500);
 				}
 			}, 1000);
 
