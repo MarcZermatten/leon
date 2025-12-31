@@ -13,6 +13,7 @@
 	import QuickActions from '$lib/components/layout/QuickActions.svelte';
 	import OutputOverlay from '$lib/components/terminal/OutputOverlay.svelte';
 	import SnippetsPanel from '$lib/components/layout/SnippetsPanel.svelte';
+	import ProjectInitDialog from '$lib/components/layout/ProjectInitDialog.svelte';
 	import type { PreviewState, PreviewMode } from '$lib/types/preview';
 	import { defaultPreviewState } from '$lib/types/preview';
 	import { checkClaudeAvailable, getClaudeVersion } from '$lib/services/claude';
@@ -33,6 +34,14 @@
 		name: string;
 		project: string;
 		timestamp: Date;
+	}
+
+	interface ProjectConfigStatus {
+		has_claude_md: boolean;
+		has_claude_dir: boolean;
+		has_settings: boolean;
+		has_agents: boolean;
+		is_fully_configured: boolean;
 	}
 
 	// State
@@ -85,6 +94,12 @@
 
 	// Snippets panel state
 	let showSnippetsPanel = $state(false);
+
+	// Project init dialog state
+	let showProjectInitDialog = $state(false);
+	let pendingProjectPath = $state<string | null>(null);
+	let pendingProjectName = $state<string>('');
+	let pendingProjectConfigStatus = $state<ProjectConfigStatus | null>(null);
 
 	// Computed Git changes count
 	let gitChangesCount = $derived(
@@ -307,10 +322,40 @@
 		}
 	}
 
-	async function openProject(path: string, customName?: string) {
+	async function openProject(path: string, customName?: string, skipConfigCheck = false) {
 		// Vérifier si le projet existe déjà dans la liste
 		let existing = sessionsList.find(s => s.project === path);
 		let projectName = customName || existing?.name || path.split(/[/\\]/).pop() || 'Projet';
+		let projectId: string;
+
+		// Vérifier la configuration Claude Code du projet (sauf si skipConfigCheck)
+		if (!skipConfigCheck) {
+			try {
+				const { invoke } = await import('@tauri-apps/api/core');
+				const configStatus = await invoke<ProjectConfigStatus>('check_project_config', {
+					projectPath: path
+				});
+
+				// Si le projet n'est pas configuré, afficher le dialogue
+				if (!configStatus.is_fully_configured) {
+					pendingProjectPath = path;
+					pendingProjectName = projectName;
+					pendingProjectConfigStatus = configStatus;
+					showProjectInitDialog = true;
+					return; // Attendre la décision de l'utilisateur
+				}
+			} catch (e) {
+				console.error('[Project] Error checking config:', e);
+				// Continuer quand même si la vérification échoue
+			}
+		}
+
+		// Continuer avec l'ouverture du projet
+		await doOpenProject(path, projectName);
+	}
+
+	async function doOpenProject(path: string, projectName: string) {
+		let existing = sessionsList.find(s => s.project === path);
 		let projectId: string;
 
 		if (existing) {
@@ -415,8 +460,22 @@ npm-debug.log*
 `;
 			await writeTextFile(`${projectPath}/.gitignore`, gitignore);
 
-			// Ouvrir le projet (le terminal initialisera git au besoin)
-			await openProject(projectPath, projectName.trim());
+			// Initialiser la configuration Claude Code pour le nouveau projet
+			try {
+				const { invoke } = await import('@tauri-apps/api/core');
+				const templatePath = await getTemplatePath();
+				await invoke('init_project_config', {
+					projectPath: projectPath,
+					projectName: projectName.trim(),
+					templatePath: templatePath
+				});
+				console.log('[NewProject] Config initialized');
+			} catch (e) {
+				console.error('[NewProject] Error initializing config:', e);
+			}
+
+			// Ouvrir le projet (skip la vérification car on vient de l'initialiser)
+			await openProject(projectPath, projectName.trim(), true);
 
 			// Attendre que le terminal soit prêt, puis initialiser git
 			setTimeout(() => {
@@ -708,6 +767,74 @@ npm-debug.log*
 	function handleExecuteSnippet(command: string) {
 		handleSendCommand(command);
 	}
+
+	// Obtenir le chemin du template
+	async function getTemplatePath(): Promise<string> {
+		try {
+			const { resourceDir } = await import('@tauri-apps/api/path');
+			const resDir = await resourceDir();
+			return resDir + 'templates/project-config';
+		} catch {
+			// En dev, utiliser le chemin absolu
+			return 'C:\\Users\\Marc\\projets\\leon\\templates\\project-config';
+		}
+	}
+
+	// Project init dialog handlers
+	async function handleInitProject() {
+		if (!pendingProjectPath) return;
+
+		try {
+			const { invoke } = await import('@tauri-apps/api/core');
+			const templatePath = await getTemplatePath();
+
+			const result = await invoke<{
+				success: boolean;
+				files_created: string[];
+				files_skipped: string[];
+			}>('init_project_config', {
+				projectPath: pendingProjectPath,
+				projectName: pendingProjectName,
+				templatePath: templatePath
+			});
+
+			console.log('[Project] Init result:', result);
+
+			// Fermer le dialogue et ouvrir le projet
+			showProjectInitDialog = false;
+			await doOpenProject(pendingProjectPath, pendingProjectName);
+
+			// Réinitialiser les états
+			pendingProjectPath = null;
+			pendingProjectName = '';
+			pendingProjectConfigStatus = null;
+
+		} catch (e) {
+			console.error('[Project] Error initializing:', e);
+			// Ouvrir quand même le projet
+			showProjectInitDialog = false;
+			if (pendingProjectPath) {
+				await doOpenProject(pendingProjectPath, pendingProjectName);
+			}
+		}
+	}
+
+	function handleSkipProjectInit() {
+		showProjectInitDialog = false;
+		if (pendingProjectPath) {
+			doOpenProject(pendingProjectPath, pendingProjectName);
+		}
+		pendingProjectPath = null;
+		pendingProjectName = '';
+		pendingProjectConfigStatus = null;
+	}
+
+	function handleCloseProjectInitDialog() {
+		showProjectInitDialog = false;
+		pendingProjectPath = null;
+		pendingProjectName = '';
+		pendingProjectConfigStatus = null;
+	}
 </script>
 
 <svelte:window onmousemove={handleMouseMove} onmouseup={stopResize} />
@@ -974,6 +1101,17 @@ npm-debug.log*
 	onCompact={handleCompact}
 	onClearTerminal={handleClearTerminal}
 	onSendCommand={handleSendCommand}
+/>
+
+<!-- Project Init Dialog -->
+<ProjectInitDialog
+	show={showProjectInitDialog}
+	projectPath={pendingProjectPath || ''}
+	projectName={pendingProjectName}
+	configStatus={pendingProjectConfigStatus}
+	onInit={handleInitProject}
+	onSkip={handleSkipProjectInit}
+	onClose={handleCloseProjectInitDialog}
 />
 
 <style>

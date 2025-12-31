@@ -1,0 +1,46 @@
+{
+  "permissions": {
+    "deny": [
+      "Bash(rm -rf /*)",
+      "Bash(del /f /s /q C:\\*)",
+      "Bash(format*)",
+      "Bash(diskpart*)",
+      "Bash(reg delete*)",
+      "Bash(bcdedit*)",
+      "Bash(*--force*main*)",
+      "Bash(*--force*master*)",
+      "Write(C:\\Windows\\**)",
+      "Write(C:\\Program Files\\**)",
+      "Write(C:\\Program Files (x86)\\**)",
+      "Write(C:\\ProgramData\\**)",
+      "Edit(C:\\Windows\\**)",
+      "Edit(C:\\Program Files\\**)",
+      "Read(**/*.pem)",
+      "Read(**/*.key)",
+      "Read(**/*password*)",
+      "Read(**/*secret*)",
+      "Read(**/*credentials*)"
+    ],
+    "ask": [
+      "Bash(git push --force*)",
+      "Bash(git reset --hard*)",
+      "Bash(rm -rf*)",
+      "Bash(Remove-Item*-Recurse*)",
+      "Write(**/.ssh/**)",
+      "Write(**/.aws/**)",
+      "Write(**/.env*)",
+      "Edit(**/.env*)"
+    ],
+    "allow": [
+      "Read({{PROJECT_PATH}}\\**)",
+      "Write({{PROJECT_PATH}}\\**)",
+      "Edit({{PROJECT_PATH}}\\**)",
+      "Bash(git:*)",
+      "Bash(npm:*)",
+      "Bash(cargo:*)",
+      "Bash(python:*)",
+      "Bash(pip:*)"
+    ]
+  },
+  "model": "sonnet"
+}
