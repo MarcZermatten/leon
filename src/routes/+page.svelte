@@ -26,7 +26,7 @@
 		shouldCreateCheckpoint
 	} from '$lib/services/checkpoints';
 	import { getGitStatus, type GitStatus } from '$lib/services/git';
-	import { FolderOpen, RotateCcw, Plus } from 'lucide-svelte';
+	import { FolderOpen, RotateCcw, Plus, ChevronRight } from 'lucide-svelte';
 
 	interface ProjectSession {
 		id: string;
@@ -93,9 +93,10 @@
 		(gitStatus?.untracked.length || 0)
 	);
 
-	// Panel widths
+	// Panel widths and visibility
 	let sidebarWidth = $state(260);
 	let previewWidth = $state(450);
+	let showSidebar = $state(true);
 
 	// LocalStorage key
 	const PROJECTS_KEY = 'leon_recent_projects';
@@ -136,6 +137,31 @@
 		if (e.ctrlKey && e.shiftKey && e.key === 'S') {
 			e.preventDefault();
 			handleToggleSnippets();
+		}
+		// Ctrl+B → Toggle sidebar
+		if (e.ctrlKey && e.key === 'b') {
+			e.preventDefault();
+			showSidebar = !showSidebar;
+		}
+		// Ctrl+P → Toggle preview (quand pas dans input)
+		if (e.ctrlKey && e.key === 'p' && !e.shiftKey) {
+			e.preventDefault();
+			handleTogglePreview();
+		}
+	}
+
+	// Toggle preview panel
+	function handleTogglePreview() {
+		if (showPreview || showGitPanel || showFileExplorer || showSnippetsPanel || showPlanPanel) {
+			// Fermer tous les panels de droite
+			showPreview = false;
+			showGitPanel = false;
+			showFileExplorer = false;
+			showSnippetsPanel = false;
+			showPlanPanel = false;
+		} else {
+			// Ouvrir le preview par défaut
+			showPreview = true;
 		}
 	}
 
@@ -519,7 +545,9 @@ npm-debug.log*
 			const newWidth = Math.max(200, Math.min(400, startWidth + delta));
 			sidebarWidth = newWidth;
 		} else if (isResizing === 'preview') {
-			const newWidth = Math.max(350, Math.min(800, startWidth - delta));
+			// Permettre jusqu'à 75% de la largeur de la fenêtre
+			const maxWidth = Math.floor(window.innerWidth * 0.75);
+			const newWidth = Math.max(350, Math.min(maxWidth, startWidth - delta));
 			previewWidth = newWidth;
 		}
 	}
@@ -671,32 +699,42 @@ npm-debug.log*
 <div class="app-container">
 	<div class="main-layout">
 		<!-- Sidebar -->
-		<div class="sidebar-container" style="width: {sidebarWidth}px">
-			<Sidebar
-				sessions={sessionsList}
-				{activeSession}
-				onNewProject={handleNewProject}
-				onOpenProject={handleOpenFolder}
-				onSelectSession={handleSelectSession}
-				onOpenSettings={handleOpenSettings}
-				onSave={handleSave}
-				onRelease={handleRelease}
-				onToggleGit={handleToggleGit}
-				onToggleFiles={handleToggleFiles}
-				onToggleSnippets={handleToggleSnippets}
-				hasActiveProject={!!workingDir}
-				gitChanges={gitChangesCount}
-			/>
-		</div>
+		{#if showSidebar}
+			<div class="sidebar-container" style="width: {sidebarWidth}px">
+				<Sidebar
+					sessions={sessionsList}
+					{activeSession}
+					onNewProject={handleNewProject}
+					onOpenProject={handleOpenFolder}
+					onSelectSession={handleSelectSession}
+					onOpenSettings={handleOpenSettings}
+					onSave={handleSave}
+					onRelease={handleRelease}
+					onToggleGit={handleToggleGit}
+					onToggleFiles={handleToggleFiles}
+					onToggleSnippets={handleToggleSnippets}
+					onTogglePreview={handleTogglePreview}
+					onToggleSidebar={() => showSidebar = false}
+					hasActiveProject={!!workingDir}
+					gitChanges={gitChangesCount}
+					isPreviewOpen={showPreview || showGitPanel || showFileExplorer || showSnippetsPanel || showPlanPanel}
+				/>
+			</div>
 
-		<!-- Resize handle sidebar -->
-		<div
-			class="resize-handle sidebar-resize"
-			onmousedown={(e) => startResize('sidebar', e)}
-			role="separator"
-			aria-orientation="vertical"
-			tabindex="-1"
-		></div>
+			<!-- Resize handle sidebar -->
+			<div
+				class="resize-handle sidebar-resize"
+				onmousedown={(e) => startResize('sidebar', e)}
+				role="separator"
+				aria-orientation="vertical"
+				tabindex="-1"
+			></div>
+		{:else}
+			<!-- Sidebar collapsed - show expand button -->
+			<button class="sidebar-expand-btn" onclick={() => showSidebar = true} title="Afficher la sidebar (Ctrl+B)">
+				<ChevronRight size={16} />
+			</button>
+		{/if}
 
 		<!-- Terminal -->
 		<div class="terminal-container">
@@ -1018,7 +1056,27 @@ npm-debug.log*
 	.preview-container {
 		flex-shrink: 0;
 		min-width: 350px;
-		max-width: 800px;
+		max-width: 75vw; /* Permet jusqu'à 75% de la largeur de la fenêtre */
+	}
+
+	.sidebar-expand-btn {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 28px;
+		height: 100%;
+		min-height: 100%;
+		background-color: var(--color-bg-secondary);
+		border: none;
+		border-right: 1px solid var(--color-border);
+		color: var(--color-text-muted);
+		cursor: pointer;
+		transition: all 0.15s;
+	}
+
+	.sidebar-expand-btn:hover {
+		background-color: var(--color-bg-hover);
+		color: var(--color-lion-400);
 	}
 
 	.resize-handle {

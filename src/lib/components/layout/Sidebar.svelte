@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Plus, FolderOpen, MessageSquare, Settings, ChevronRight, Save, Rocket, GitBranch, Files, Zap } from 'lucide-svelte';
+	import { Plus, FolderOpen, MessageSquare, Settings, ChevronRight, ChevronLeft, Save, Rocket, GitBranch, Files, Zap, PanelRightClose, PanelRightOpen } from 'lucide-svelte';
 
 	interface Session {
 		id: string;
@@ -20,8 +20,11 @@
 		onToggleGit = () => {},
 		onToggleFiles = () => {},
 		onToggleSnippets = () => {},
+		onTogglePreview = () => {},
+		onToggleSidebar = () => {},
 		hasActiveProject = false,
-		gitChanges = 0
+		gitChanges = 0,
+		isPreviewOpen = false
 	} = $props<{
 		sessions: Session[];
 		activeSession: string | null;
@@ -34,8 +37,11 @@
 		onToggleGit: () => void;
 		onToggleFiles: () => void;
 		onToggleSnippets: () => void;
+		onTogglePreview: () => void;
+		onToggleSidebar: () => void;
 		hasActiveProject: boolean;
 		gitChanges: number;
+		isPreviewOpen: boolean;
 	}>();
 </script>
 
@@ -113,6 +119,28 @@
 				</button>
 			</div>
 		{/if}
+		<div class="toggle-buttons">
+			<button
+				class="toggle-btn"
+				class:active={isPreviewOpen}
+				onclick={onTogglePreview}
+				title="Afficher/masquer le preview (Ctrl+P)"
+			>
+				{#if isPreviewOpen}
+					<PanelRightClose size={18} />
+				{:else}
+					<PanelRightOpen size={18} />
+				{/if}
+				<span>Preview</span>
+			</button>
+			<button
+				class="toggle-btn collapse-btn"
+				onclick={onToggleSidebar}
+				title="Masquer la sidebar (Ctrl+B)"
+			>
+				<ChevronLeft size={18} />
+			</button>
+		</div>
 		<button class="settings-btn" onclick={onOpenSettings}>
 			<Settings size={18} />
 			<span>Paramètres</span>
@@ -348,5 +376,49 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
+	}
+
+	.toggle-buttons {
+		display: flex;
+		gap: 0.5rem;
+		padding: 0.5rem;
+		border-bottom: 1px solid var(--color-border);
+	}
+
+	.toggle-btn {
+		flex: 1;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 0.375rem;
+		padding: 0.5rem;
+		background: none;
+		border: 1px solid var(--color-border);
+		border-radius: 6px;
+		color: var(--color-text-secondary);
+		cursor: pointer;
+		font-size: 0.75rem;
+		transition: all 0.15s;
+	}
+
+	.toggle-btn:hover {
+		background-color: var(--color-bg-hover);
+		color: var(--color-text-primary);
+	}
+
+	.toggle-btn.active {
+		background-color: var(--color-lion-900);
+		border-color: var(--color-lion-600);
+		color: var(--color-lion-300);
+	}
+
+	.collapse-btn {
+		flex: 0;
+		padding: 0.5rem 0.75rem;
+	}
+
+	.collapse-btn:hover {
+		border-color: var(--color-lion-500);
+		color: var(--color-lion-400);
 	}
 </style>
