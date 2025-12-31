@@ -308,7 +308,32 @@
 	}
 
 	async function openProject(path: string, customName?: string) {
-		workingDir = path;
+		// Vérifier si le projet existe déjà dans la liste
+		let existing = sessionsList.find(s => s.project === path);
+		let projectName = customName || existing?.name || path.split(/[/\\]/).pop() || 'Projet';
+		let projectId: string;
+
+		if (existing) {
+			projectId = existing.id;
+			activeSession = existing.id;
+		} else {
+			// Ajouter le nouveau projet à la liste
+			projectId = crypto.randomUUID();
+			const newSession: ProjectSession = {
+				id: projectId,
+				name: projectName,
+				project: path,
+				timestamp: new Date()
+			};
+			sessionsList = [newSession, ...sessionsList.slice(0, 9)]; // Garder max 10
+			activeSession = projectId;
+			saveRecentProjects();
+		}
+
+		// Ouvrir dans un onglet terminal (créé ou existant)
+		if (terminalComponent) {
+			terminalComponent.openProject(path, projectName, projectId);
+		}
 
 		// Initialiser les checkpoints pour ce projet
 		await setCheckpointProject(path);
@@ -316,26 +341,17 @@
 
 		// Rafraîchir les stats pour ce projet
 		refreshStats();
+	}
 
-		// Vérifier si le projet existe déjà
-		const existing = sessionsList.find(s => s.project === path);
-		if (existing) {
-			activeSession = existing.id;
-			return;
+	// Callback quand l'onglet actif change dans TerminalTabs
+	function handleActiveProjectChange(path: string | null) {
+		workingDir = path;
+		if (path) {
+			const session = sessionsList.find(s => s.project === path);
+			if (session) {
+				activeSession = session.id;
+			}
 		}
-
-		// Ajouter le nouveau projet
-		const id = crypto.randomUUID();
-		const projectName = customName || path.split(/[/\\]/).pop() || 'Projet';
-		const newSession: ProjectSession = {
-			id,
-			name: projectName,
-			project: path,
-			timestamp: new Date()
-		};
-		sessionsList = [newSession, ...sessionsList.slice(0, 9)]; // Garder max 10
-		activeSession = id;
-		saveRecentProjects();
 	}
 
 	async function handleNewProject() {
@@ -415,10 +431,10 @@ npm-debug.log*
 	}
 
 	function handleSelectSession(id: string) {
-		activeSession = id;
 		const session = sessionsList.find(s => s.id === id);
 		if (session) {
-			workingDir = session.project;
+			// Ouvrir le projet (crée un onglet ou active l'existant)
+			openProject(session.project, session.name);
 		}
 	}
 
@@ -770,14 +786,12 @@ npm-debug.log*
 					onSendCommand={handleSendCommand}
 				/>
 				<div class="terminal-wrapper">
-					{#key workingDir}
-						<TerminalTabs
-							bind:this={terminalComponent}
-							{workingDir}
-							onReady={handleTerminalReady}
-							onOutput={handleTerminalOutput}
-						/>
-					{/key}
+					<TerminalTabs
+						bind:this={terminalComponent}
+						onReady={handleTerminalReady}
+						onOutput={handleTerminalOutput}
+						onActiveProjectChange={handleActiveProjectChange}
+					/>
 					<OutputOverlay
 						output={terminalOutput}
 						isVisible={showOutputOverlay}

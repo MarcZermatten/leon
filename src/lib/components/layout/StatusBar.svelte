@@ -20,22 +20,22 @@
 		onCompact = () => {},
 		onShowAgents = () => {}
 	} = $props<{
-		project: string;
-		model: string;
-		sessionId: string | null;
-		tokensUsed: { input: number; output: number };
-		status: 'idle' | 'thinking' | 'executing' | 'error';
-		contextUsedPercent: number | null;
-		sessionMessages: number | null;
-		todayMessages: number | null;
-		weeklyMessages: number | null;
-		checkpointCount: number;
-		activeAgents: number;
-		totalAgents: number;
-		onUndo: () => void;
-		onShowCheckpoints: () => void;
-		onCompact: () => void;
-		onShowAgents: () => void;
+		project?: string;
+		model?: string;
+		sessionId?: string | null;
+		tokensUsed?: { input: number; output: number };
+		status?: 'idle' | 'thinking' | 'executing' | 'error';
+		contextUsedPercent?: number | null;
+		sessionMessages?: number | null;
+		todayMessages?: number | null;
+		weeklyMessages?: number | null;
+		checkpointCount?: number;
+		activeAgents?: number;
+		totalAgents?: number;
+		onUndo?: () => void;
+		onShowCheckpoints?: () => void;
+		onCompact?: () => void;
+		onShowAgents?: () => void;
 	}>();
 
 	const statusConfig: Record<string, { color: string; label: string }> = {

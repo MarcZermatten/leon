@@ -1,43 +1,80 @@
 <script lang="ts">
-	import { Plus, X, Terminal as TerminalIcon } from 'lucide-svelte';
+	import { Plus, X, Terminal as TerminalIcon, FolderOpen } from 'lucide-svelte';
 	import Terminal from './Terminal.svelte';
 
 	interface Tab {
 		id: string;
 		name: string;
-		workingDir: string | null;
+		workingDir: string;
+		projectId?: string; // Pour identifier le projet associé
 	}
 
 	let {
-		workingDir = null,
 		onReady = () => {},
-		onOutput = (text: string) => {}
+		onOutput = (text: string) => {},
+		onActiveProjectChange = (path: string | null) => {}
 	} = $props<{
-		workingDir: string | null;
 		onReady: () => void;
 		onOutput: (text: string) => void;
+		onActiveProjectChange: (path: string | null) => void;
 	}>();
 
 	let tabs = $state<Tab[]>([]);
 	let activeTabId = $state<string | null>(null);
 	let terminals = $state<(Terminal | null)[]>([]);
 
-	// Créer un premier tab quand workingDir change
+	// Notifier le parent quand l'onglet actif change
 	$effect(() => {
-		if (workingDir && tabs.length === 0) {
-			addTab();
+		if (activeTabId) {
+			const activeTab = tabs.find(t => t.id === activeTabId);
+			onActiveProjectChange(activeTab?.workingDir || null);
+		} else {
+			onActiveProjectChange(null);
 		}
 	});
 
-	function addTab() {
-		if (!workingDir) return;
+	/**
+	 * Ouvre un projet dans un onglet (existant ou nouveau)
+	 */
+	export function openProject(projectPath: string, projectName: string, projectId?: string): void {
+		// Vérifier si un onglet existe déjà pour ce projet
+		const existingTab = tabs.find(t => t.workingDir === projectPath);
 
+		if (existingTab) {
+			// Activer l'onglet existant
+			activeTabId = existingTab.id;
+			const index = tabs.findIndex(t => t.id === existingTab.id);
+			setTimeout(() => terminals[index]?.focus(), 50);
+			return;
+		}
+
+		// Créer un nouvel onglet
 		const id = crypto.randomUUID();
-		const tabNumber = tabs.length + 1;
 		const newTab: Tab = {
 			id,
-			name: `Terminal ${tabNumber}`,
-			workingDir
+			name: projectName,
+			workingDir: projectPath,
+			projectId
+		};
+
+		tabs = [...tabs, newTab];
+		activeTabId = id;
+	}
+
+	function addTab() {
+		// Ajouter un tab pour le même projet que l'onglet actif
+		const activeTab = tabs.find(t => t.id === activeTabId);
+		if (!activeTab) return;
+
+		const id = crypto.randomUUID();
+		const sameProjectTabs = tabs.filter(t => t.workingDir === activeTab.workingDir);
+		const tabNumber = sameProjectTabs.length + 1;
+
+		const newTab: Tab = {
+			id,
+			name: `${activeTab.name} (${tabNumber})`,
+			workingDir: activeTab.workingDir,
+			projectId: activeTab.projectId
 		};
 
 		tabs = [...tabs, newTab];
@@ -91,6 +128,25 @@
 			terminals[index]?.sendText(text);
 		}
 	}
+
+	// Méthode pour récupérer le workingDir actif
+	export function getActiveWorkingDir(): string | null {
+		if (activeTabId) {
+			const activeTab = tabs.find(t => t.id === activeTabId);
+			return activeTab?.workingDir || null;
+		}
+		return null;
+	}
+
+	// Méthode pour vérifier si un projet est ouvert
+	export function hasProject(projectPath: string): boolean {
+		return tabs.some(t => t.workingDir === projectPath);
+	}
+
+	// Méthode pour récupérer le nombre d'onglets
+	export function getTabCount(): number {
+		return tabs.length;
+	}
 </script>
 
 <div class="terminal-tabs-container">
@@ -102,8 +158,13 @@
 						class="tab"
 						class:active={tab.id === activeTabId}
 						onclick={() => selectTab(tab.id)}
+						title={tab.workingDir}
 					>
-						<TerminalIcon size={12} />
+						{#if tab.projectId}
+							<FolderOpen size={12} />
+						{:else}
+							<TerminalIcon size={12} />
+						{/if}
 						<span class="tab-name">{tab.name}</span>
 						{#if tabs.length > 1}
 							<button
