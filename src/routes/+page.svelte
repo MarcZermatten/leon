@@ -421,11 +421,12 @@
 		if (!projectName) return;
 
 		showNewProjectDialog = false;
+		console.log('[NewProject] Starting creation of:', projectName);
 
 		try {
-
 			// Créer le dossier Léon s'il n'existe pas
 			const { mkdir, writeTextFile, exists } = await import('@tauri-apps/plugin-fs');
+			console.log('[NewProject] Imported fs plugins');
 
 			// Vérifier et créer le dossier parent
 			try {
@@ -497,7 +498,9 @@ npm-debug.log*
 			}
 
 			// Ouvrir le projet (skip la vérification car on vient de l'initialiser)
+			console.log('[NewProject] Opening project:', projectPath);
 			await openProject(projectPath, projectName.trim(), true);
+			console.log('[NewProject] Project opened successfully');
 
 			// Attendre que le terminal soit prêt, puis lancer la planification
 			setTimeout(() => {
@@ -536,6 +539,11 @@ Commence par me poser la première question !`;
 
 		} catch (e) {
 			console.error('Erreur création projet:', e);
+			await showAlert({
+				title: 'Erreur création projet',
+				message: `${e}`,
+				variant: 'error'
+			});
 		}
 	}
 

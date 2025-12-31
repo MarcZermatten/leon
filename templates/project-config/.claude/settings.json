@@ -1,8 +1,6 @@
 {
   "permissions": {
     "deny": [
-      "Bash(rm -rf /)",
-      "Bash(del /f /s /q C:\\)",
       "Write(C:\\Windows\\**)",
       "Write(C:\\Program Files\\**)",
       "Write(C:\\Program Files (x86)\\**)",
@@ -10,10 +8,7 @@
       "Edit(C:\\Windows\\**)",
       "Edit(C:\\Program Files\\**)",
       "Read(**/*.pem)",
-      "Read(**/*.key)",
-      "Read(**/*password*)",
-      "Read(**/*secret*)",
-      "Read(**/*credentials*)"
+      "Read(**/*.key)"
     ],
     "allow": [
       "Read({{PROJECT_PATH}}/**)",
@@ -25,6 +20,5 @@
       "Bash(python:*)",
       "Bash(pip:*)"
     ]
-  },
-  "model": "sonnet"
+  }
 }
