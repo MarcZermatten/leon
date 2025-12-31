@@ -831,10 +831,10 @@ Commence par me poser la première question !`;
 	// Obtenir le chemin du template
 	async function getTemplatePath(): Promise<string> {
 		try {
-			const { resourceDir } = await import('@tauri-apps/api/path');
-			const resDir = await resourceDir();
-			return resDir + 'templates/project-config';
-		} catch {
+			const { resolveResource } = await import('@tauri-apps/api/path');
+			return await resolveResource('templates/project-config');
+		} catch (e) {
+			console.error('[getTemplatePath] Error:', e);
 			// En dev, utiliser le chemin absolu
 			return 'C:\\Users\\Marc\\projets\\leon\\templates\\project-config';
 		}
