@@ -101,6 +101,10 @@
 	let pendingProjectName = $state<string>('');
 	let pendingProjectConfigStatus = $state<ProjectConfigStatus | null>(null);
 
+	// New project dialog state
+	let showNewProjectDialog = $state(false);
+	let newProjectName = $state('');
+
 	// Computed Git changes count
 	let gitChangesCount = $derived(
 		(gitStatus?.staged.length || 0) +
@@ -403,10 +407,18 @@
 	}
 
 	async function handleNewProject() {
+		// Afficher le dialogue de nouveau projet
+		newProjectName = '';
+		showNewProjectDialog = true;
+	}
+
+	async function createNewProject() {
+		const projectName = newProjectName.trim();
+		if (!projectName) return;
+
+		showNewProjectDialog = false;
+
 		try {
-			// Demander le nom du projet
-			const projectName = prompt('Nom du nouveau projet:');
-			if (!projectName || !projectName.trim()) return;
 
 			// Créer le dossier Léon s'il n'existe pas
 			const { mkdir, writeTextFile, exists } = await import('@tauri-apps/plugin-fs');
@@ -1225,6 +1237,33 @@ Commence par me poser la première question !`;
 	onClose={handleCloseProjectInitDialog}
 />
 
+<!-- New Project Dialog -->
+{#if showNewProjectDialog}
+<div class="modal-overlay" onclick={() => showNewProjectDialog = false}>
+	<div class="modal-content new-project-modal" onclick={(e) => e.stopPropagation()}>
+		<h2>Nouveau projet</h2>
+		<p>Entrez le nom de votre nouveau projet :</p>
+		<input
+			type="text"
+			bind:value={newProjectName}
+			placeholder="mon-super-projet"
+			autofocus
+			onkeydown={(e) => {
+				if (e.key === 'Enter' && newProjectName.trim()) {
+					createNewProject();
+				} else if (e.key === 'Escape') {
+					showNewProjectDialog = false;
+				}
+			}}
+		/>
+		<div class="modal-actions">
+			<button class="btn-secondary" onclick={() => showNewProjectDialog = false}>Annuler</button>
+			<button class="btn-primary" onclick={createNewProject} disabled={!newProjectName.trim()}>Créer</button>
+		</div>
+	</div>
+</div>
+{/if}
+
 <style>
 	.app-container {
 		display: flex;
@@ -1514,5 +1553,90 @@ Commence par me poser la première question !`;
 		color: var(--color-text-muted);
 		font-family: monospace;
 		margin-top: 0.25rem;
+	}
+
+	/* New Project Modal */
+	.modal-overlay {
+		position: fixed;
+		inset: 0;
+		background: rgba(0, 0, 0, 0.7);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		z-index: 1000;
+	}
+
+	.modal-content {
+		background: var(--color-bg-secondary);
+		border: 1px solid var(--color-border);
+		border-radius: 12px;
+		padding: 1.5rem;
+		max-width: 400px;
+		width: 90%;
+	}
+
+	.modal-content h2 {
+		margin: 0 0 0.5rem 0;
+		color: var(--color-text-primary);
+		font-size: 1.25rem;
+	}
+
+	.modal-content p {
+		margin: 0 0 1rem 0;
+		color: var(--color-text-secondary);
+		font-size: 0.9rem;
+	}
+
+	.modal-content input {
+		width: 100%;
+		padding: 0.75rem;
+		background: var(--color-bg-primary);
+		border: 1px solid var(--color-border);
+		border-radius: 8px;
+		color: var(--color-text-primary);
+		font-size: 1rem;
+		margin-bottom: 1rem;
+	}
+
+	.modal-content input:focus {
+		outline: none;
+		border-color: var(--color-lion-500);
+	}
+
+	.modal-actions {
+		display: flex;
+		gap: 0.75rem;
+		justify-content: flex-end;
+	}
+
+	.btn-secondary, .btn-primary {
+		padding: 0.5rem 1rem;
+		border-radius: 6px;
+		font-size: 0.9rem;
+		cursor: pointer;
+		border: none;
+	}
+
+	.btn-secondary {
+		background: var(--color-bg-hover);
+		color: var(--color-text-secondary);
+	}
+
+	.btn-secondary:hover {
+		background: var(--color-bg-tertiary);
+	}
+
+	.btn-primary {
+		background: var(--color-lion-600);
+		color: white;
+	}
+
+	.btn-primary:hover:not(:disabled) {
+		background: var(--color-lion-500);
+	}
+
+	.btn-primary:disabled {
+		opacity: 0.5;
+		cursor: not-allowed;
 	}
 </style>
