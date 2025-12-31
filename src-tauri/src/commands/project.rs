@@ -110,9 +110,12 @@ pub fn init_project_config(
 
 /// Process template content by replacing placeholders
 fn process_template(content: &str, project_name: &str, project_path: &str) -> String {
+    // Escape backslashes for JSON compatibility
+    let escaped_path = project_path.replace("\\", "\\\\");
+
     content
         .replace("{{PROJECT_NAME}}", project_name)
-        .replace("{{PROJECT_PATH}}", project_path)
+        .replace("{{PROJECT_PATH}}", &escaped_path)
 }
 
 #[derive(serde::Serialize)]
