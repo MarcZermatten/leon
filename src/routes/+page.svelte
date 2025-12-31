@@ -14,6 +14,10 @@
 	import OutputOverlay from '$lib/components/terminal/OutputOverlay.svelte';
 	import SnippetsPanel from '$lib/components/layout/SnippetsPanel.svelte';
 	import ProjectInitDialog from '$lib/components/layout/ProjectInitDialog.svelte';
+	import ConfirmDialog from '$lib/components/dialogs/ConfirmDialog.svelte';
+	import InputDialog from '$lib/components/dialogs/InputDialog.svelte';
+	import AlertDialog from '$lib/components/dialogs/AlertDialog.svelte';
+	import { showConfirm, showInput, showAlert } from '$lib/stores/dialogs';
 	import type { PreviewState, PreviewMode } from '$lib/types/preview';
 	import { defaultPreviewState } from '$lib/types/preview';
 	import { checkClaudeAvailable, getClaudeVersion } from '$lib/services/claude';
@@ -682,8 +686,13 @@ Commence par me poser la première question !`;
 	}
 
 	// Double-click pour renommer
-	function handleDoubleClickSession(session: ProjectSession) {
-		const newName = prompt('Renommer le projet:', session.name);
+	async function handleDoubleClickSession(session: ProjectSession) {
+		const newName = await showInput({
+			title: 'Renommer le projet',
+			message: 'Entrez le nouveau nom du projet :',
+			defaultValue: session.name,
+			placeholder: session.name
+		});
 		if (newName && newName.trim()) {
 			handleRenameProject(session.id, newName.trim());
 		}
@@ -907,11 +916,13 @@ Commence par me poser la première question !`;
 			const projectName = sourcePath.split(/[/\\]/).pop() || 'projet';
 
 			// Demander copie ou déplacement
-			const moveProject = confirm(
-				`Importer "${projectName}" vers Leon\\projets\n\n` +
-				`Cliquez OK pour DÉPLACER (supprime l'original)\n` +
-				`Cliquez Annuler pour COPIER (garde l'original)`
-			);
+			const moveProject = await showConfirm({
+				title: `Importer "${projectName}"`,
+				message: `Comment voulez-vous importer ce projet vers Leon\\projets ?`,
+				confirmText: 'Déplacer (supprime l\'original)',
+				cancelText: 'Copier (garde l\'original)',
+				variant: 'warning'
+			});
 
 			// S'assurer que le dossier Leon existe
 			try {
@@ -951,15 +962,19 @@ Commence par me poser la première question !`;
 			// Ouvrir le projet importé
 			await openProject(destPath, projectName, true);
 
-			alert(
-				`Projet importé avec succès !\n\n` +
-				`${result.files_copied} fichiers ${result.moved ? 'déplacés' : 'copiés'}\n` +
-				`Nouveau chemin: ${destPath}`
-			);
+			await showAlert({
+				title: 'Import réussi',
+				message: `${result.files_copied} fichiers ${result.moved ? 'déplacés' : 'copiés'}\nNouveau chemin: ${destPath}`,
+				variant: 'success'
+			});
 
 		} catch (e) {
 			console.error('[Import] Error:', e);
-			alert(`Erreur lors de l'importation: ${e}`);
+			await showAlert({
+				title: 'Erreur d\'importation',
+				message: `${e}`,
+				variant: 'error'
+			});
 		}
 	}
 </script>
@@ -1272,6 +1287,11 @@ Commence par me poser la première question !`;
 	</div>
 </div>
 {/if}
+
+<!-- Global Dialogs -->
+<ConfirmDialog />
+<InputDialog />
+<AlertDialog />
 
 <style>
 	.app-container {

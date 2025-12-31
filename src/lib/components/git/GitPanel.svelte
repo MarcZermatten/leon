@@ -31,6 +31,7 @@
 		type GitBranch as GitBranchType,
 		type GitDiff
 	} from '$lib/services/git';
+	import { showConfirm } from '$lib/stores/dialogs';
 
 	let {
 		projectPath = null,
@@ -103,7 +104,14 @@
 	}
 
 	async function handleDiscardFile(path: string) {
-		if (!projectPath || !confirm(`Discard changes to ${path}?`)) return;
+		if (!projectPath) return;
+		const confirmed = await showConfirm({
+			title: 'Annuler les modifications',
+			message: `Voulez-vous vraiment annuler les modifications de "${path}" ?`,
+			confirmText: 'Annuler les modifications',
+			variant: 'danger'
+		});
+		if (!confirmed) return;
 		await gitDiscardFile(projectPath, path);
 		await refreshStatus();
 	}

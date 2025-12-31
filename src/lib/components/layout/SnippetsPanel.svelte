@@ -27,6 +27,7 @@
 		CATEGORY_NAMES,
 		type Snippet
 	} from '$lib/services/snippets';
+	import { showConfirm } from '$lib/stores/dialogs';
 
 	let {
 		isVisible = true,
@@ -99,8 +100,14 @@
 		showAddForm = false;
 	}
 
-	function handleDelete(id: string) {
-		if (confirm('Supprimer ce snippet ?')) {
+	async function handleDelete(id: string) {
+		const confirmed = await showConfirm({
+			title: 'Supprimer le snippet',
+			message: 'Voulez-vous vraiment supprimer ce snippet ?',
+			confirmText: 'Supprimer',
+			variant: 'danger'
+		});
+		if (confirmed) {
 			if (deleteSnippet(id)) {
 				snippets = loadSnippets();
 			}
