@@ -841,6 +841,82 @@ npm-debug.log*
 		pendingProjectName = '';
 		pendingProjectConfigStatus = null;
 	}
+
+	// Import an existing project to Leon folder
+	async function handleImportProject() {
+		try {
+			const { open } = await import('@tauri-apps/plugin-dialog');
+			const { invoke } = await import('@tauri-apps/api/core');
+			const { mkdir, exists } = await import('@tauri-apps/plugin-fs');
+
+			// Sélectionner le projet à importer
+			const sourcePath = await open({
+				directory: true,
+				multiple: false,
+				title: 'Sélectionner le projet à importer'
+			});
+
+			if (!sourcePath || typeof sourcePath !== 'string') return;
+
+			// Extraire le nom du projet
+			const projectName = sourcePath.split(/[/\\]/).pop() || 'projet';
+
+			// Demander copie ou déplacement
+			const moveProject = confirm(
+				`Importer "${projectName}" vers Leon\\projets\n\n` +
+				`Cliquez OK pour DÉPLACER (supprime l'original)\n` +
+				`Cliquez Annuler pour COPIER (garde l'original)`
+			);
+
+			// S'assurer que le dossier Leon existe
+			try {
+				const dirExists = await exists(LEON_PROJECTS_DIR);
+				if (!dirExists) {
+					await mkdir(LEON_PROJECTS_DIR, { recursive: true });
+				}
+			} catch {
+				await mkdir(LEON_PROJECTS_DIR, { recursive: true });
+			}
+
+			// Chemin destination
+			const destPath = `${LEON_PROJECTS_DIR}\\${projectName}`;
+
+			// Copier/déplacer le projet
+			const result = await invoke<{
+				success: boolean;
+				files_copied: number;
+				moved: boolean;
+				new_path: string;
+			}>('copy_project', {
+				sourcePath: sourcePath,
+				destPath: destPath,
+				moveInsteadOfCopy: moveProject
+			});
+
+			console.log('[Import] Result:', result);
+
+			// Initialiser la config Claude Code
+			const templatePath = await getTemplatePath();
+			await invoke('init_project_config', {
+				projectPath: destPath,
+				projectName: projectName,
+				templatePath: templatePath
+			});
+
+			// Ouvrir le projet importé
+			await openProject(destPath, projectName, true);
+
+			alert(
+				`Projet importé avec succès !\n\n` +
+				`${result.files_copied} fichiers ${result.moved ? 'déplacés' : 'copiés'}\n` +
+				`Nouveau chemin: ${destPath}`
+			);
+
+		} catch (e) {
+			console.error('[Import] Error:', e);
+			alert(`Erreur lors de l'importation: ${e}`);
+		}
+	}
 </script>
 
 <svelte:window onmousemove={handleMouseMove} onmouseup={stopResize} />
@@ -855,6 +931,7 @@ npm-debug.log*
 					{activeSession}
 					onNewProject={handleNewProject}
 					onOpenProject={handleOpenFolder}
+					onImportProject={handleImportProject}
 					onSelectSession={handleSelectSession}
 					onOpenSettings={handleOpenSettings}
 					onSave={handleSave}

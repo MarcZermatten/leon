@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Plus, FolderOpen, MessageSquare, Settings, ChevronRight, ChevronLeft, Save, Rocket, GitBranch, Files, Zap, PanelRightClose, PanelRightOpen } from 'lucide-svelte';
+	import { Plus, FolderOpen, MessageSquare, Settings, ChevronRight, ChevronLeft, Save, Rocket, GitBranch, Files, Zap, PanelRightClose, PanelRightOpen, Download } from 'lucide-svelte';
 
 	interface Session {
 		id: string;
@@ -13,6 +13,7 @@
 		activeSession = null,
 		onNewProject = () => {},
 		onOpenProject = () => {},
+		onImportProject = () => {},
 		onSelectSession = (id: string) => {},
 		onOpenSettings = () => {},
 		onSave = () => {},
@@ -30,6 +31,7 @@
 		activeSession: string | null;
 		onNewProject: () => void;
 		onOpenProject: () => void;
+		onImportProject: () => void;
 		onSelectSession: (id: string) => void;
 		onOpenSettings: () => void;
 		onSave: () => void;
@@ -58,6 +60,10 @@
 		<button class="open-project-btn" onclick={onOpenProject}>
 			<FolderOpen size={18} />
 			<span>Ouvrir un projet</span>
+		</button>
+		<button class="import-project-btn" onclick={onImportProject} title="Importer un projet existant vers Leon">
+			<Download size={18} />
+			<span>Importer un projet</span>
 		</button>
 	</div>
 
@@ -178,7 +184,8 @@
 	}
 
 	.new-project-btn,
-	.open-project-btn {
+	.open-project-btn,
+	.import-project-btn {
 		display: flex;
 		align-items: center;
 		gap: 0.5rem;
@@ -207,6 +214,17 @@
 	.open-project-btn:hover {
 		background-color: var(--color-lion-900);
 		border-color: var(--color-lion-600);
+	}
+
+	.import-project-btn {
+		background-color: var(--color-bg-tertiary);
+		border: 1px dashed var(--color-border);
+	}
+
+	.import-project-btn:hover {
+		background-color: var(--color-bg-hover);
+		border-color: var(--color-lion-500);
+		border-style: solid;
 	}
 
 	.sidebar-nav {

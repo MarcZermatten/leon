@@ -1,7 +1,7 @@
 mod commands;
 
 use commands::{
-    capture_window, check_claude_available, check_project_config, create_checkpoint,
+    capture_window, check_claude_available, check_project_config, copy_project, create_checkpoint,
     get_checkpoint_count, get_claude_stats, get_claude_version, get_file_info, get_git_branches,
     get_git_commits, get_git_diff, get_git_status, get_recent_sessions, get_session_id,
     get_session_stats, git_checkout_branch, git_commit, git_discard_file, git_pull, git_push,
@@ -70,7 +70,8 @@ pub fn run() {
             get_file_info,
             // Project config
             check_project_config,
-            init_project_config
+            init_project_config,
+            copy_project
         ])
         .setup(|app| {
             if cfg!(debug_assertions) {

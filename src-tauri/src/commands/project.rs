@@ -1,6 +1,7 @@
 use std::fs;
 use std::path::Path;
 use tauri::command;
+use std::io;
 
 /// Check if a project has Claude Code configuration
 #[command]
@@ -128,4 +129,75 @@ pub struct InitResult {
     pub success: bool,
     pub files_created: Vec<String>,
     pub files_skipped: Vec<String>,
+}
+
+/// Copy a project to the Leon projects directory
+#[command]
+pub fn copy_project(
+    source_path: String,
+    dest_path: String,
+    move_instead_of_copy: bool,
+) -> Result<CopyResult, String> {
+    let source = Path::new(&source_path);
+    let dest = Path::new(&dest_path);
+
+    if !source.exists() {
+        return Err(format!("Source path does not exist: {}", source_path));
+    }
+
+    if dest.exists() {
+        return Err(format!("Destination already exists: {}", dest_path));
+    }
+
+    // Create destination parent if needed
+    if let Some(parent) = dest.parent() {
+        if !parent.exists() {
+            fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+        }
+    }
+
+    // Copy the directory
+    let files_copied = copy_dir_recursive(source, dest)?;
+
+    // If move, delete source after successful copy
+    if move_instead_of_copy {
+        fs::remove_dir_all(source).map_err(|e| format!("Copy succeeded but failed to remove source: {}", e))?;
+    }
+
+    Ok(CopyResult {
+        success: true,
+        files_copied,
+        moved: move_instead_of_copy,
+        new_path: dest_path,
+    })
+}
+
+/// Recursively copy a directory
+fn copy_dir_recursive(src: &Path, dst: &Path) -> Result<usize, String> {
+    let mut count = 0;
+
+    fs::create_dir_all(dst).map_err(|e| e.to_string())?;
+
+    for entry in fs::read_dir(src).map_err(|e| e.to_string())? {
+        let entry = entry.map_err(|e| e.to_string())?;
+        let src_path = entry.path();
+        let dst_path = dst.join(entry.file_name());
+
+        if src_path.is_dir() {
+            count += copy_dir_recursive(&src_path, &dst_path)?;
+        } else {
+            fs::copy(&src_path, &dst_path).map_err(|e| e.to_string())?;
+            count += 1;
+        }
+    }
+
+    Ok(count)
+}
+
+#[derive(serde::Serialize)]
+pub struct CopyResult {
+    pub success: bool,
+    pub files_copied: usize,
+    pub moved: bool,
+    pub new_path: String,
 }
