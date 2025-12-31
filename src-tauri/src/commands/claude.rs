@@ -7,6 +7,13 @@ use std::process::{Child, ChildStdin, Command, Stdio};
 use std::sync::{Arc, Mutex};
 use tauri::{command, AppHandle, Emitter, Manager};
 
+#[cfg(windows)]
+use std::os::windows::process::CommandExt;
+
+/// Flag Windows pour créer un processus sans fenêtre console
+#[cfg(windows)]
+const CREATE_NO_WINDOW: u32 = 0x08000000;
+
 /// État global du runner Claude - garde le process ET stdin pour envoyer des messages
 pub struct ClaudeRunner {
     pub process: Option<Child>,
@@ -45,6 +52,10 @@ pub async fn start_claude_session(
     log::info!("Starting interactive Claude session from: {}", claude_path);
 
     let mut cmd = Command::new(&claude_path);
+
+    // Masquer la fenêtre console sur Windows
+    #[cfg(windows)]
+    cmd.creation_flags(CREATE_NO_WINDOW);
 
     // Mode interactif bidirectionnel (PAS de -p !)
     cmd.arg("--input-format").arg("stream-json");
@@ -281,7 +292,13 @@ pub fn check_claude_available() -> Result<bool, String> {
     let claude_path = get_claude_path();
     log::info!("Checking Claude at: {}", claude_path);
 
-    match Command::new(&claude_path).arg("--version").output() {
+    let mut cmd = Command::new(&claude_path);
+    cmd.arg("--version");
+
+    #[cfg(windows)]
+    cmd.creation_flags(CREATE_NO_WINDOW);
+
+    match cmd.output() {
         Ok(output) => {
             log::info!("Claude check result: {}", output.status.success());
             Ok(output.status.success())
@@ -298,9 +315,13 @@ pub fn check_claude_available() -> Result<bool, String> {
 pub fn get_claude_version() -> Result<String, String> {
     let claude_path = get_claude_path();
 
-    let output = Command::new(&claude_path)
-        .arg("--version")
-        .output()
+    let mut cmd = Command::new(&claude_path);
+    cmd.arg("--version");
+
+    #[cfg(windows)]
+    cmd.creation_flags(CREATE_NO_WINDOW);
+
+    let output = cmd.output()
         .map_err(|e| format!("Claude CLI non trouvé: {}", e))?;
 
     String::from_utf8(output.stdout)

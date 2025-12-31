@@ -5,6 +5,13 @@ use serde::{Deserialize, Serialize};
 use std::process::Command;
 use tauri::command;
 
+#[cfg(windows)]
+use std::os::windows::process::CommandExt;
+
+/// Flag Windows pour créer un processus sans fenêtre console
+#[cfg(windows)]
+const CREATE_NO_WINDOW: u32 = 0x08000000;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GitStatus {
     pub branch: String,
@@ -61,10 +68,14 @@ pub struct DiffLine {
 
 /// Exécuter une commande Git
 fn run_git_command(project_path: &str, args: &[&str]) -> Result<String, String> {
-    let output = Command::new("git")
-        .args(args)
-        .current_dir(project_path)
-        .output()
+    let mut cmd = Command::new("git");
+    cmd.args(args).current_dir(project_path);
+
+    // Masquer la fenêtre console sur Windows
+    #[cfg(windows)]
+    cmd.creation_flags(CREATE_NO_WINDOW);
+
+    let output = cmd.output()
         .map_err(|e| format!("Failed to execute git: {}", e))?;
 
     if output.status.success() {

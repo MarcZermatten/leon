@@ -11,7 +11,8 @@
 	let {
 		sessions = [],
 		activeSession = null,
-		onNewChat = () => {},
+		onNewProject = () => {},
+		onOpenProject = () => {},
 		onSelectSession = (id: string) => {},
 		onOpenSettings = () => {},
 		onSave = () => {},
@@ -24,7 +25,8 @@
 	} = $props<{
 		sessions: Session[];
 		activeSession: string | null;
-		onNewChat: () => void;
+		onNewProject: () => void;
+		onOpenProject: () => void;
 		onSelectSession: (id: string) => void;
 		onOpenSettings: () => void;
 		onSave: () => void;
@@ -42,10 +44,16 @@
 		<img src="/images/logo.png" alt="Léon" class="logo" />
 	</div>
 
-	<button class="new-chat-btn" onclick={onNewChat}>
-		<Plus size={18} />
-		<span>Nouvelle conversation</span>
-	</button>
+	<div class="sidebar-actions">
+		<button class="new-project-btn" onclick={onNewProject}>
+			<Plus size={18} />
+			<span>Nouveau projet</span>
+		</button>
+		<button class="open-project-btn" onclick={onOpenProject}>
+			<FolderOpen size={18} />
+			<span>Ouvrir un projet</span>
+		</button>
+	</div>
 
 	<nav class="sidebar-nav">
 		<div class="nav-section">
@@ -134,22 +142,43 @@
 		width: auto;
 	}
 
-	.new-chat-btn {
+	.sidebar-actions {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+		padding: 1rem;
+	}
+
+	.new-project-btn,
+	.open-project-btn {
 		display: flex;
 		align-items: center;
 		gap: 0.5rem;
-		margin: 1rem;
 		padding: 0.75rem 1rem;
-		background-color: var(--color-lion-600);
 		color: var(--color-text-primary);
 		border: none;
 		border-radius: 8px;
 		cursor: pointer;
 		font-weight: 500;
+		font-size: 0.875rem;
 	}
 
-	.new-chat-btn:hover {
+	.new-project-btn {
+		background-color: var(--color-lion-600);
+	}
+
+	.new-project-btn:hover {
 		background-color: var(--color-lion-500);
+	}
+
+	.open-project-btn {
+		background-color: var(--color-bg-hover);
+		border: 1px solid var(--color-border);
+	}
+
+	.open-project-btn:hover {
+		background-color: var(--color-lion-900);
+		border-color: var(--color-lion-600);
 	}
 
 	.sidebar-nav {

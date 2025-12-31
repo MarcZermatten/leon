@@ -107,7 +107,12 @@
 			e.preventDefault();
 			showCommandPalette = true;
 		}
-		// Ctrl+O → Open folder
+		// Ctrl+N → New project
+		if (e.ctrlKey && e.key === 'n') {
+			e.preventDefault();
+			handleNewProject();
+		}
+		// Ctrl+O → Open project
 		if (e.ctrlKey && e.key === 'o') {
 			e.preventDefault();
 			handleOpenFolder();
@@ -307,8 +312,80 @@
 		saveRecentProjects();
 	}
 
-	function handleNewChat() {
-		handleOpenFolder();
+	async function handleNewProject() {
+		try {
+			const { open } = await import('@tauri-apps/plugin-dialog');
+
+			// Demander le nom du projet
+			const projectName = prompt('Nom du nouveau projet:');
+			if (!projectName || !projectName.trim()) return;
+
+			// Demander où créer le projet
+			const parentDir = await open({
+				directory: true,
+				multiple: false,
+				title: 'Choisir où créer le projet'
+			});
+
+			if (!parentDir || typeof parentDir !== 'string') return;
+
+			// Créer le chemin complet
+			const safeName = projectName.trim().replace(/[<>:"/\\|?*]/g, '_');
+			const projectPath = `${parentDir}/${safeName}`;
+
+			// Créer le dossier et fichiers initiaux
+			const { mkdir, writeTextFile } = await import('@tauri-apps/plugin-fs');
+			await mkdir(projectPath, { recursive: true });
+
+			// Créer README.md
+			await writeTextFile(`${projectPath}/README.md`, `# ${projectName.trim()}\n\nProjet créé avec Léon.\n`);
+
+			// Créer .gitignore basique
+			const gitignore = `# Dependencies
+node_modules/
+.pnp/
+.pnp.js
+
+# Build
+dist/
+build/
+*.egg-info/
+__pycache__/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+`;
+			await writeTextFile(`${projectPath}/.gitignore`, gitignore);
+
+			// Ouvrir le projet (le terminal initialisera git au besoin)
+			await openProject(projectPath, projectName.trim());
+
+			// Attendre que le terminal soit prêt, puis initialiser git
+			setTimeout(() => {
+				if (terminalComponent) {
+					terminalComponent.sendText(`git init && git add -A && git commit -m "Initial commit - Created with Léon"\n`);
+				}
+			}, 1000);
+
+		} catch (e) {
+			console.error('Erreur création projet:', e);
+		}
 	}
 
 	function handleSelectSession(id: string) {
@@ -598,7 +675,8 @@
 			<Sidebar
 				sessions={sessionsList}
 				{activeSession}
-				onNewChat={handleNewChat}
+				onNewProject={handleNewProject}
+				onOpenProject={handleOpenFolder}
 				onSelectSession={handleSelectSession}
 				onOpenSettings={handleOpenSettings}
 				onSave={handleSave}
@@ -689,10 +767,16 @@
 						</p>
 					{/if}
 
-					<button class="open-folder-btn" onclick={handleOpenFolder} disabled={!claudeAvailable}>
-						<FolderOpen size={20} />
-						<span>Ouvrir un dossier</span>
-					</button>
+					<div class="welcome-actions">
+						<button class="new-project-btn" onclick={handleNewProject} disabled={!claudeAvailable}>
+							<Plus size={20} />
+							<span>Nouveau projet</span>
+						</button>
+						<button class="open-project-btn" onclick={handleOpenFolder} disabled={!claudeAvailable}>
+							<FolderOpen size={20} />
+							<span>Ouvrir un projet</span>
+						</button>
+					</div>
 
 					{#if sessionsList.length > 0}
 						<div class="recent-projects">
@@ -831,7 +915,7 @@
 	isOpen={showCommandPalette}
 	onClose={() => showCommandPalette = false}
 	onOpenFolder={handleOpenFolder}
-	onNewChat={handleNewChat}
+	onNewProject={handleNewProject}
 	onSave={handleSave}
 	onUndo={handleUndo}
 	onSettings={() => showSettings = true}
@@ -1013,27 +1097,46 @@
 		font-family: monospace;
 	}
 
-	.open-folder-btn {
+	.welcome-actions {
+		display: flex;
+		gap: 1rem;
+		margin-top: 1.5rem;
+	}
+
+	.welcome-actions .new-project-btn,
+	.welcome-actions .open-project-btn {
 		display: flex;
 		align-items: center;
 		gap: 0.5rem;
 		padding: 0.75rem 1.5rem;
-		background-color: var(--color-lion-600);
 		color: var(--color-text-primary);
 		border: none;
 		border-radius: 8px;
 		font-size: 1rem;
 		font-weight: 500;
 		cursor: pointer;
-		margin-top: 1rem;
-		transition: background-color 0.15s;
+		transition: all 0.15s;
 	}
 
-	.open-folder-btn:hover:not(:disabled) {
+	.welcome-actions .new-project-btn {
+		background-color: var(--color-lion-600);
+	}
+
+	.welcome-actions .new-project-btn:hover:not(:disabled) {
 		background-color: var(--color-lion-500);
 	}
 
-	.open-folder-btn:disabled {
+	.welcome-actions .open-project-btn {
+		background-color: var(--color-bg-secondary);
+		border: 1px solid var(--color-border);
+	}
+
+	.welcome-actions .open-project-btn:hover:not(:disabled) {
+		background-color: var(--color-bg-hover);
+		border-color: var(--color-lion-500);
+	}
+
+	.welcome-actions button:disabled {
 		opacity: 0.5;
 		cursor: not-allowed;
 	}

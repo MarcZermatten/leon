@@ -15,7 +15,7 @@
 		isOpen = false,
 		onClose = () => {},
 		onOpenFolder = () => {},
-		onNewChat = () => {},
+		onNewProject = () => {},
 		onSave = () => {},
 		onUndo = () => {},
 		onSettings = () => {},
@@ -26,7 +26,7 @@
 		isOpen: boolean;
 		onClose: () => void;
 		onOpenFolder: () => void;
-		onNewChat: () => void;
+		onNewProject: () => void;
 		onSave: () => void;
 		onUndo: () => void;
 		onSettings: () => void;
@@ -41,21 +41,21 @@
 
 	const commands: CommandItem[] = [
 		{
-			id: 'open-folder',
-			label: 'Ouvrir un dossier',
-			description: 'Sélectionner un projet à ouvrir',
-			shortcut: 'Ctrl+O',
-			icon: FolderOpen,
-			action: onOpenFolder,
+			id: 'new-project',
+			label: 'Nouveau projet',
+			description: 'Créer un nouveau projet de développement',
+			shortcut: 'Ctrl+N',
+			icon: Terminal,
+			action: onNewProject,
 			category: 'project'
 		},
 		{
-			id: 'new-chat',
-			label: 'Nouvelle conversation',
-			description: 'Démarrer une nouvelle session Claude',
-			shortcut: 'Ctrl+N',
-			icon: Terminal,
-			action: onNewChat,
+			id: 'open-folder',
+			label: 'Ouvrir un projet',
+			description: 'Sélectionner un projet existant',
+			shortcut: 'Ctrl+O',
+			icon: FolderOpen,
+			action: onOpenFolder,
 			category: 'project'
 		},
 		{
