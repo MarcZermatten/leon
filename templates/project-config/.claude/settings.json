@@ -1,24 +1,32 @@
 {
   "permissions": {
     "deny": [
-      "Write(C:\\Windows\\**)",
-      "Write(C:\\Program Files\\**)",
-      "Write(C:\\Program Files (x86)\\**)",
-      "Write(C:\\ProgramData\\**)",
-      "Edit(C:\\Windows\\**)",
-      "Edit(C:\\Program Files\\**)",
-      "Read(**/*.pem)",
-      "Read(**/*.key)"
+      "Bash(rm -rf /*)",
+      "Bash(del /f /s /q C:\*)",
+      "Bash(format*)",
+      "Bash(diskpart*)",
+      "Write(C:\Windows\**)",
+      "Write(C:\Program Files\**)"
+    ],
+    "ask": [
+      "Bash(git push --force*)",
+      "Bash(rm -rf*)",
+      "Write(**/.env*)"
     ],
     "allow": [
-      "Read({{PROJECT_PATH}}/**)",
-      "Write({{PROJECT_PATH}}/**)",
-      "Edit({{PROJECT_PATH}}/**)",
+      "Read({{PROJECT_PATH}}\**)",
+      "Write({{PROJECT_PATH}}\**)",
+      "Edit({{PROJECT_PATH}}\**)",
       "Bash(git:*)",
       "Bash(npm:*)",
-      "Bash(cargo:*)",
-      "Bash(python:*)",
-      "Bash(pip:*)"
+      "Bash(python:*)"
     ]
+  },
+  "env": {
+    "PROJECT_ROOT": "{{PROJECT_PATH}}",
+    "PROJECT_NAME": "{{PROJECT_NAME}}",
+    "POSTGIS_HOST": "srv-fme",
+    "POSTGIS_DB": "Prod",
+    "POSTGIS_USER": "postgres"
   }
 }

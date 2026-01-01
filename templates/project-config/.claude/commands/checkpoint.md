@@ -1,22 +1,24 @@
-# /checkpoint - Sauvegarder Etat Memoire
+# /checkpoint - Sauvegarder État Mémoire
 
-Met a jour la memoire projet et commit.
+Met à jour la mémoire projet et commit.
 
 ## Instructions
 
-1. Mettre a jour `.claude/memory/context.md`:
-   - WIP: tache actuelle
-   - BLOCKER: probleme si existe
-   - LAST_FILES: 3 derniers fichiers modifies
+1. Mettre à jour `.claude/memory/context.md`:
+   - WIP: tâche actuelle
+   - BLOCKER: problème si existe
+   - LAST_FILES: 3 derniers fichiers modifiés
    - NEXT: prochaine action
 
-2. Ajouter a `.claude/memory/decisions.md` si nouvelle decision d'archi:
-   - Format: `[YYYY-MM-DD] SUJET: decision (raison)`
+2. Ajouter à `.claude/memory/decisions.md` si nouvelle décision d'archi:
+   - Format: `[YYYY-MM-DD] SUJET: décision (raison)`
 
-3. Commit: `git add -A && git commit -m "checkpoint: [resume]" && git push`
+3. Vérifier decisions.md ne dépasse pas 30 entrées
 
-## Regles
+4. Commit: `git add -A && git commit -m "checkpoint: [résumé]" && git push`
+
+## Règles
 
 - Ne PAS ajouter d'infos redondantes
-- Ne PAS detailler ce qui est dans le code
+- Ne PAS détailler ce qui est dans le code
 - Garder context.md < 50 lignes

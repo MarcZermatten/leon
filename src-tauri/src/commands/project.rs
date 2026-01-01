@@ -16,12 +16,16 @@ pub fn check_project_config(project_path: String) -> Result<ProjectConfigStatus,
     let claude_dir = path.join(".claude");
     let settings_json = claude_dir.join("settings.json");
     let agents_dir = claude_dir.join("agents");
+    let commands_dir = claude_dir.join("commands");
+    let rules_dir = claude_dir.join("rules");
 
     Ok(ProjectConfigStatus {
         has_claude_md: claude_md.exists(),
         has_claude_dir: claude_dir.exists(),
         has_settings: settings_json.exists(),
         has_agents: agents_dir.exists() && agents_dir.is_dir(),
+        has_commands: commands_dir.exists() && commands_dir.is_dir(),
+        has_rules: rules_dir.exists() && rules_dir.is_dir(),
         is_fully_configured: claude_md.exists() && claude_dir.exists() && settings_json.exists(),
     })
 }
@@ -101,6 +105,51 @@ pub fn init_project_config(
         }
     }
 
+    // Create and copy commands directory (skills)
+    let commands_dir = claude_dir.join("commands");
+    if !commands_dir.exists() {
+        fs::create_dir_all(&commands_dir).map_err(|e| e.to_string())?;
+    }
+    let template_commands = template.join(".claude").join("commands");
+    if template_commands.exists() {
+        for entry in fs::read_dir(&template_commands).map_err(|e| e.to_string())? {
+            let entry = entry.map_err(|e| e.to_string())?;
+            let file_name = entry.file_name();
+            let target_file = commands_dir.join(&file_name);
+
+            if !target_file.exists() {
+                let content = fs::read_to_string(entry.path()).map_err(|e| e.to_string())?;
+                let processed = process_template(&content, &project_name, &project_path);
+                fs::write(&target_file, processed).map_err(|e| e.to_string())?;
+                files_created.push(format!(".claude/commands/{}", file_name.to_string_lossy()));
+            } else {
+                files_skipped.push(format!(".claude/commands/{} (already exists)", file_name.to_string_lossy()));
+            }
+        }
+    }
+
+    // Create and copy rules directory
+    let rules_dir = claude_dir.join("rules");
+    if !rules_dir.exists() {
+        fs::create_dir_all(&rules_dir).map_err(|e| e.to_string())?;
+    }
+    let template_rules = template.join(".claude").join("rules");
+    if template_rules.exists() {
+        for entry in fs::read_dir(&template_rules).map_err(|e| e.to_string())? {
+            let entry = entry.map_err(|e| e.to_string())?;
+            let file_name = entry.file_name();
+            let target_file = rules_dir.join(&file_name);
+
+            if !target_file.exists() {
+                let content = fs::read_to_string(entry.path()).map_err(|e| e.to_string())?;
+                fs::write(&target_file, content).map_err(|e| e.to_string())?;
+                files_created.push(format!(".claude/rules/{}", file_name.to_string_lossy()));
+            } else {
+                files_skipped.push(format!(".claude/rules/{} (already exists)", file_name.to_string_lossy()));
+            }
+        }
+    }
+
     Ok(InitResult {
         success: true,
         files_created,
@@ -124,6 +173,8 @@ pub struct ProjectConfigStatus {
     pub has_claude_dir: bool,
     pub has_settings: bool,
     pub has_agents: bool,
+    pub has_commands: bool,
+    pub has_rules: bool,
     pub is_fully_configured: bool,
 }
 
