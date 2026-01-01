@@ -169,10 +169,97 @@ Claude Code utilise automatiquement ces agents pour optimiser le contexte. Chaqu
 |-------|---------------------------|
 | **doc-writer** | Documentation technique, JSDoc, README, Changelog |
 
+### SIT / Géospatial (haiku/sonnet)
+| Agent | Déclenchement automatique |
+|-------|---------------------------|
+| **python-geo** | Scripts Python géospatiaux (GeoPandas, Shapely, Fiona, Rasterio) |
+| **qgis-expert** | QGIS, PyQGIS, expressions, plugins, projets .qgz, styles QML |
+| **fme-etl** | FME Workbench, transformers, pipelines ETL, fichiers .fmw |
+| **postgis-sql** (sonnet) | PostgreSQL/PostGIS, SQL spatial, optimisation, SRID 2056 |
+| **interlis-expert** | INTERLIS 1/2, modèles MD.*, validation XTF/ITF, MOpublic |
+| **cartographie** | Sémiologie graphique, styles SLD/QML, publication WMS/WFS |
+
+### Données & Intégration (haiku)
+| Agent | Déclenchement automatique |
+|-------|---------------------------|
+| **excel-data** | Fichiers Excel/CSV, import/export, tableaux croisés |
+| **api-integrator** | APIs REST, services web cantonaux/fédéraux, WMS/WFS |
+| **pdf-reports** | Génération rapports PDF, extraction données, templates |
+
+### Domaines métier (haiku/sonnet)
+| Agent | Déclenchement automatique |
+|-------|---------------------------|
+| **3d-bim** | CityGML, IFC, LiDAR, MNT/MNS, maquettes 3D |
+| **network-infra** | Canalisations, réseaux, éclairage, SIA 405 |
+| **urbanisme** (sonnet) | PGA, PPA, zones, indices IUS/IOS, procédures |
+| **environnement** (sonnet) | Zones protection, biodiversité, bruit, sols pollués |
+| **legal-ch** (sonnet) | Droit suisse (LAT, OAT, RF, CC), cadastre, servitudes |
+| **stats-analyst** | Statistiques, démographie, indicateurs territoriaux |
+
 Les agents sont définis dans `.claude/agents/` et se lancent automatiquement selon le contexte de la tâche.
+
+## MCP Servers Disponibles
+
+| Serveur | Usage |
+|---------|-------|
+| `postgres-bussigny` | Connexion PostGIS srv-fme |
+| `filesystem` | Accès fichiers projets |
+| `memory` | Persistance mémoire sessions |
+| `github` | Repos, issues, PRs |
+| `fetch` | Requêtes HTTP/APIs |
+| `sequential-thinking` | Raisonnement complexe |
+| `playwright` | Automatisation web |
+| `time` | Dates, délais, planification |
+| `gdrive` | Documents Google Drive |
 
 ## Commandes Disponibles
 - `/save` - Commit + push les changements
 - `/build` - Compiler l'application
 - `/dev` - Lancer en mode développement
 - `/checkpoint` - Sauvegarder l'état mémoire
+
+## Skills SIT Disponibles
+
+Les skills sont des commandes spécialisées pour les tâches géospatiales courantes. Ils sont définis dans `.claude/commands/`.
+
+### Données & ETL
+| Skill | Description | Exemple |
+|-------|-------------|---------|
+| `/import-csv` | Importer CSV dans PostGIS avec détection géo | `/import-csv adresses.csv` |
+| `/export` | Exporter table PostGIS vers fichier | `/export geo.parcelles gpkg` |
+| `/convert` | Convertir entre formats (shp, gpkg, dxf...) | `/convert data.shp geojson` |
+| `/validate-xtf` | Valider fichier INTERLIS | `/validate-xtf cadastre.xtf` |
+| `/geocode` | Géocoder adresses suisses (swisstopo) | `/geocode "Rue du Simplon 1, Bussigny"` |
+
+### PostGIS
+| Skill | Description | Exemple |
+|-------|-------------|---------|
+| `/sql` | Exécuter requête SQL ou langage naturel | `/sql parcelles > 1000m2 zone habitat` |
+| `/describe` | Décrire structure table/schema | `/describe geo.parcelles` |
+| `/spatial-check` | Vérifier qualité géométries | `/spatial-check geo.batiments --fix` |
+| `/backup` | Sauvegarder table/schema | `/backup geo.parcelles` |
+
+### QGIS
+| Skill | Description | Exemple |
+|-------|-------------|---------|
+| `/new-qgis` | Créer projet QGIS avec couches Bussigny | `/new-qgis cadastre2024 cadastre` |
+| `/apply-style` | Appliquer/générer style QML | `/apply-style parcelles gradient par surface` |
+
+### Rapports
+| Skill | Description | Exemple |
+|-------|-------------|---------|
+| `/parcelle` | Rapport complet sur une parcelle | `/parcelle 1234` |
+| `/stats` | Statistiques géodonnées communales | `/stats batiments 2020-2024` |
+
+### Utilitaires
+| Skill | Description | Exemple |
+|-------|-------------|---------|
+| `/coords` | Convertir coordonnées (MN95↔WGS84) | `/coords 2534567 1152345` |
+| `/buffer` | Créer zone tampon | `/buffer 2534567,1152345 100m` |
+| `/distance` | Calculer distance entre points | `/distance adresse1 adresse2` |
+
+### Projet
+| Skill | Description | Exemple |
+|-------|-------------|---------|
+| `/deploy` | Déployer données vers prod/test | `/deploy geo.parcelles prod` |
+| `/fme-run` | Exécuter workbench FME | `/fme-run import_rf.fmw DATE=2024-01-15` |
