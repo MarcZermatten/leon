@@ -1,6 +1,6 @@
 [package]
 name = "leon"
-version = "1.0.10"
+version = "1.0.11"
 description = "Léon - Claude Code UI Wrapper"
 authors = ["Marc Zermatten"]
 license = "MIT"

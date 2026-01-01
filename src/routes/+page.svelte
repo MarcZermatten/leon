@@ -31,7 +31,8 @@
 		shouldCreateCheckpoint
 	} from '$lib/services/checkpoints';
 	import { getGitStatus, type GitStatus } from '$lib/services/git';
-	import { FolderOpen, RotateCcw, Plus, ChevronRight } from 'lucide-svelte';
+	import { FolderOpen, RotateCcw, Plus, ChevronRight, Pencil, Trash2 } from 'lucide-svelte';
+	import ContextMenu from '$lib/components/layout/ContextMenu.svelte';
 
 	interface ProjectSession {
 		id: string;
@@ -108,6 +109,14 @@
 	// New project dialog state
 	let showNewProjectDialog = $state(false);
 	let newProjectName = $state('');
+
+	// Context menu state
+	let contextMenu = $state<{
+		show: boolean;
+		x: number;
+		y: number;
+		session: ProjectSession | null;
+	}>({ show: false, x: 0, y: 0, session: null });
 
 	// Computed Git changes count
 	let gitChangesCount = $derived(
@@ -574,6 +583,58 @@ Commence par me poser la première question !`;
 		saveRecentProjects();
 	}
 
+	function handleRemoveProject(id: string) {
+		sessionsList = sessionsList.filter(s => s.id !== id);
+		saveRecentProjects();
+	}
+
+	function handleProjectContextMenu(e: MouseEvent, session: ProjectSession) {
+		e.preventDefault();
+		contextMenu = {
+			show: true,
+			x: e.clientX,
+			y: e.clientY,
+			session
+		};
+	}
+
+	function closeContextMenu() {
+		contextMenu = { show: false, x: 0, y: 0, session: null };
+	}
+
+	async function handleContextMenuRename() {
+		if (!contextMenu.session) return;
+		const session = contextMenu.session;
+		closeContextMenu();
+
+		const newName = await showInput({
+			title: 'Renommer le projet',
+			message: 'Entrez le nouveau nom du projet :',
+			defaultValue: session.name,
+			placeholder: session.name
+		});
+		if (newName && newName.trim()) {
+			handleRenameProject(session.id, newName.trim());
+		}
+	}
+
+	async function handleContextMenuRemove() {
+		if (!contextMenu.session) return;
+		const session = contextMenu.session;
+		closeContextMenu();
+
+		const confirmed = await showConfirm({
+			title: 'Retirer de la liste',
+			message: `Retirer "${session.name}" des projets récents ?\n\nLe projet ne sera pas supprimé du disque.`,
+			confirmText: 'Retirer',
+			cancelText: 'Annuler',
+			variant: 'warning'
+		});
+		if (confirmed) {
+			handleRemoveProject(session.id);
+		}
+	}
+
 	function handleTerminalReady() {
 		terminalReady = true;
 		terminalComponent?.focus();
@@ -921,7 +982,7 @@ Commence par me poser la première question !`;
 		try {
 			const { open } = await import('@tauri-apps/plugin-dialog');
 			const { invoke } = await import('@tauri-apps/api/core');
-			const { mkdir, exists } = await import('@tauri-apps/plugin-fs');
+			const { mkdir, exists, remove } = await import('@tauri-apps/plugin-fs');
 
 			// Sélectionner le projet à importer
 			const sourcePath = await open({
@@ -933,16 +994,8 @@ Commence par me poser la première question !`;
 			if (!sourcePath || typeof sourcePath !== 'string') return;
 
 			// Extraire le nom du projet
-			const projectName = sourcePath.split(/[/\\]/).pop() || 'projet';
-
-			// Demander copie ou déplacement
-			const moveProject = await showConfirm({
-				title: `Importer "${projectName}"`,
-				message: `Comment voulez-vous importer ce projet vers Leon\\projets ?`,
-				confirmText: 'Déplacer (supprime l\'original)',
-				cancelText: 'Copier (garde l\'original)',
-				variant: 'warning'
-			});
+			let projectName = sourcePath.split(/[/\\]/).pop() || 'projet';
+			let finalProjectName = projectName;
 
 			// S'assurer que le dossier Leon existe
 			try {
@@ -954,8 +1007,62 @@ Commence par me poser la première question !`;
 				await mkdir(LEON_PROJECTS_DIR, { recursive: true });
 			}
 
-			// Chemin destination
-			const destPath = `${LEON_PROJECTS_DIR}\\${projectName}`;
+			// Vérifier si le projet existe déjà
+			let destPath = `${LEON_PROJECTS_DIR}\\${projectName}`;
+			const projectExists = await exists(destPath);
+
+			if (projectExists) {
+				// Proposer des options
+				const action = await showInput({
+					title: `Le projet "${projectName}" existe déjà`,
+					message: 'Que voulez-vous faire ?\n\n• Tapez un nouveau nom pour renommer\n• Tapez "ecraser" pour remplacer l\'existant\n• Laissez vide pour annuler',
+					placeholder: `${projectName}_2`,
+					defaultValue: ''
+				});
+
+				if (!action || action.trim() === '') {
+					// Annulé
+					return;
+				}
+
+				if (action.toLowerCase() === 'ecraser') {
+					// Supprimer l'existant
+					try {
+						await remove(destPath, { recursive: true });
+					} catch (e) {
+						console.error('[Import] Error removing existing:', e);
+						await showAlert({
+							title: 'Erreur',
+							message: `Impossible de supprimer le projet existant: ${e}`,
+							variant: 'error'
+						});
+						return;
+					}
+				} else {
+					// Renommer
+					finalProjectName = action.trim().replace(/[<>:"/\\|?*]/g, '_');
+					destPath = `${LEON_PROJECTS_DIR}\\${finalProjectName}`;
+
+					// Vérifier que le nouveau nom n'existe pas non plus
+					if (await exists(destPath)) {
+						await showAlert({
+							title: 'Erreur',
+							message: `Un projet "${finalProjectName}" existe aussi. Choisissez un autre nom.`,
+							variant: 'error'
+						});
+						return;
+					}
+				}
+			}
+
+			// Demander copie ou déplacement
+			const moveProject = await showConfirm({
+				title: `Importer "${finalProjectName}"`,
+				message: `Comment voulez-vous importer ce projet vers Leon\\projets ?`,
+				confirmText: 'Déplacer (supprime l\'original)',
+				cancelText: 'Copier (garde l\'original)',
+				variant: 'warning'
+			});
 
 			// Copier/déplacer le projet
 			const result = await invoke<{
@@ -975,12 +1082,12 @@ Commence par me poser la première question !`;
 			const templatePath = await getTemplatePath();
 			await invoke('init_project_config', {
 				projectPath: destPath,
-				projectName: projectName,
+				projectName: finalProjectName,
 				templatePath: templatePath
 			});
 
 			// Ouvrir le projet importé
-			await openProject(destPath, projectName, true);
+			await openProject(destPath, finalProjectName, true);
 
 			await showAlert({
 				title: 'Import réussi',
@@ -1130,13 +1237,17 @@ Commence par me poser la première question !`;
 							<ul>
 								{#each sessionsList.slice(0, 5) as session (session.id)}
 									<li>
-										<button onclick={() => handleSelectSession(session.id)}>
+										<button
+											onclick={() => handleSelectSession(session.id)}
+											oncontextmenu={(e) => handleProjectContextMenu(e, session)}
+										>
 											<span class="session-name">{session.name}</span>
 											<span class="session-path">{session.project}</span>
 										</button>
 									</li>
 								{/each}
 							</ul>
+							<p class="hint">Clic droit pour renommer ou supprimer</p>
 						</div>
 					{/if}
 				</div>
@@ -1307,6 +1418,18 @@ Commence par me poser la première question !`;
 	</div>
 </div>
 {/if}
+
+<!-- Context Menu for recent projects -->
+<ContextMenu
+	show={contextMenu.show}
+	x={contextMenu.x}
+	y={contextMenu.y}
+	items={[
+		{ label: 'Renommer', icon: Pencil, action: handleContextMenuRename },
+		{ label: 'Retirer de la liste', icon: Trash2, action: handleContextMenuRemove, variant: 'danger', separator: true }
+	]}
+	onClose={closeContextMenu}
+/>
 
 <!-- Global Dialogs -->
 <ConfirmDialog />
@@ -1602,6 +1725,13 @@ Commence par me poser la première question !`;
 		color: var(--color-text-muted);
 		font-family: monospace;
 		margin-top: 0.25rem;
+	}
+
+	.hint {
+		font-size: 0.7rem;
+		color: var(--color-text-muted);
+		margin-top: 0.5rem;
+		opacity: 0.7;
 	}
 
 	/* New Project Modal */
