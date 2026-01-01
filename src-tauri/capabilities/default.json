@@ -26,6 +26,13 @@
       ]
     },
     {
+      "identifier": "fs:allow-write-text-file",
+      "allow": [
+        { "path": "$HOME/**" },
+        { "path": "$APPDATA/**" }
+      ]
+    },
+    {
       "identifier": "fs:allow-exists",
       "allow": [
         { "path": "$HOME/**" },
