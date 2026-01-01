@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Plus, FolderOpen, MessageSquare, Settings, ChevronRight, ChevronLeft, Save, Rocket, GitBranch, Files, Zap, PanelRightClose, PanelRightOpen, Download } from 'lucide-svelte';
+	import { Plus, FolderOpen, MessageSquare, Settings, ChevronRight, ChevronLeft, Save, Rocket, GitBranch, Files, Zap, PanelRightClose, PanelRightOpen, Download, ChevronUp, ChevronDown } from 'lucide-svelte';
 
 	interface Session {
 		id: string;
@@ -15,6 +15,8 @@
 		onOpenProject = () => {},
 		onImportProject = () => {},
 		onSelectSession = (id: string) => {},
+		onSessionContextMenu = (e: MouseEvent, session: Session) => {},
+		onReorderSessions = (sessions: Session[]) => {},
 		onOpenSettings = () => {},
 		onSave = () => {},
 		onRelease = () => {},
@@ -33,6 +35,8 @@
 		onOpenProject: () => void;
 		onImportProject: () => void;
 		onSelectSession: (id: string) => void;
+		onSessionContextMenu: (e: MouseEvent, session: Session) => void;
+		onReorderSessions: (sessions: Session[]) => void;
 		onOpenSettings: () => void;
 		onSave: () => void;
 		onRelease: () => void;
@@ -45,6 +49,20 @@
 		gitChanges: number;
 		isPreviewOpen: boolean;
 	}>();
+
+	function moveUp(index: number) {
+		if (index <= 0) return;
+		const newSessions = [...sessions];
+		[newSessions[index - 1], newSessions[index]] = [newSessions[index], newSessions[index - 1]];
+		onReorderSessions(newSessions);
+	}
+
+	function moveDown(index: number) {
+		if (index >= sessions.length - 1) return;
+		const newSessions = [...sessions];
+		[newSessions[index], newSessions[index + 1]] = [newSessions[index + 1], newSessions[index]];
+		onReorderSessions(newSessions);
+	}
 </script>
 
 <aside class="sidebar">
@@ -53,17 +71,17 @@
 	</div>
 
 	<div class="sidebar-actions">
-		<button class="new-project-btn" onclick={onNewProject}>
-			<Plus size={18} />
-			<span>Nouveau projet</span>
+		<button class="action-primary" onclick={onNewProject} title="Créer un nouveau projet">
+			<Plus size={16} />
+			<span>Nouveau</span>
 		</button>
-		<button class="open-project-btn" onclick={onOpenProject}>
-			<FolderOpen size={18} />
-			<span>Ouvrir un projet</span>
+		<button class="action-secondary" onclick={onOpenProject} title="Ouvrir un dossier existant">
+			<FolderOpen size={14} />
+			<span>Ouvrir</span>
 		</button>
-		<button class="import-project-btn" onclick={onImportProject} title="Importer un projet existant vers Leon">
-			<Download size={18} />
-			<span>Importer un projet</span>
+		<button class="action-secondary" onclick={onImportProject} title="Importer un projet existant">
+			<Download size={14} />
+			<span>Importer</span>
 		</button>
 	</div>
 
@@ -71,23 +89,44 @@
 		<div class="nav-section">
 			<div class="nav-section-header">
 				<FolderOpen size={14} />
-				<span>Projets récents</span>
+				<span>Projets</span>
 			</div>
 			<ul class="session-list">
 				{#if sessions.length === 0}
-					<li class="empty-state">Aucune session</li>
+					<li class="empty-state">Aucun projet</li>
 				{:else}
-					{#each sessions as session (session.id)}
+					{#each sessions as session, index (session.id)}
 						<li>
-							<button
-								class="session-item"
-								class:active={activeSession === session.id}
-								onclick={() => onSelectSession(session.id)}
-							>
-								<MessageSquare size={14} />
-								<span class="session-name">{session.name}</span>
-								<ChevronRight size={14} class="chevron" />
-							</button>
+							<div class="session-row">
+								<div class="reorder-buttons">
+									<button
+										class="reorder-btn"
+										onclick={() => moveUp(index)}
+										disabled={index === 0}
+										title="Monter"
+									>
+										<ChevronUp size={12} />
+									</button>
+									<button
+										class="reorder-btn"
+										onclick={() => moveDown(index)}
+										disabled={index === sessions.length - 1}
+										title="Descendre"
+									>
+										<ChevronDown size={12} />
+									</button>
+								</div>
+								<button
+									class="session-item"
+									class:active={activeSession === session.id}
+									onclick={() => onSelectSession(session.id)}
+									oncontextmenu={(e) => onSessionContextMenu(e, session)}
+								>
+									<MessageSquare size={14} />
+									<span class="session-name">{session.name}</span>
+									<ChevronRight size={14} class="chevron" />
+								</button>
+							</div>
 						</li>
 					{/each}
 				{/if}
@@ -97,60 +136,54 @@
 
 	<div class="sidebar-footer">
 		{#if hasActiveProject}
-			<div class="action-buttons">
-				<button class="action-btn files-btn" onclick={onToggleFiles} title="Afficher l'explorateur de fichiers">
-					<Files size={18} />
-					<span>Files</span>
+			<div class="toolbar">
+				<button class="tool-btn" onclick={onToggleFiles} title="Fichiers">
+					<Files size={16} />
 				</button>
-				<button class="action-btn git-btn" onclick={onToggleGit} title="Afficher le panneau Git">
-					<GitBranch size={18} />
-					<span>Git</span>
+				<button class="tool-btn" onclick={onToggleGit} title="Git">
+					<GitBranch size={16} />
 					{#if gitChanges > 0}
-						<span class="git-badge">{gitChanges}</span>
+						<span class="badge">{gitChanges}</span>
 					{/if}
 				</button>
-				<button class="action-btn snippets-btn" onclick={onToggleSnippets} title="Afficher les snippets (Ctrl+Shift+S)">
-					<Zap size={18} />
-					<span>Snippets</span>
+				<button class="tool-btn" onclick={onToggleSnippets} title="Snippets">
+					<Zap size={16} />
 				</button>
-			</div>
-			<div class="action-buttons">
-				<button class="action-btn save-btn" onclick={onSave} title="Sauvegarder et pousser sur GitHub">
-					<Save size={18} />
-					<span>Sauver</span>
+				<span class="toolbar-divider"></span>
+				<button class="tool-btn save" onclick={onSave} title="Sauver">
+					<Save size={16} />
 				</button>
-				<button class="action-btn release-btn" onclick={onRelease} title="Créer et pousser une release">
-					<Rocket size={18} />
-					<span>Release</span>
+				<button class="tool-btn release" onclick={onRelease} title="Release">
+					<Rocket size={16} />
 				</button>
 			</div>
 		{/if}
-		<div class="toggle-buttons">
-			<button
-				class="toggle-btn"
-				class:active={isPreviewOpen}
-				onclick={onTogglePreview}
-				title="Afficher/masquer le preview (Ctrl+P)"
-			>
-				{#if isPreviewOpen}
-					<PanelRightClose size={18} />
-				{:else}
-					<PanelRightOpen size={18} />
-				{/if}
-				<span>Preview</span>
+		<div class="toolbar bottom">
+			{#if hasActiveProject}
+				<button
+					class="tool-btn"
+					class:active={isPreviewOpen}
+					onclick={onTogglePreview}
+					title="Preview (Ctrl+P)"
+				>
+					{#if isPreviewOpen}
+						<PanelRightClose size={16} />
+					{:else}
+						<PanelRightOpen size={16} />
+					{/if}
+				</button>
+			{/if}
+			<button class="tool-btn" onclick={onOpenSettings} title="Paramètres">
+				<Settings size={16} />
 			</button>
 			<button
-				class="toggle-btn collapse-btn"
+				class="tool-btn collapse"
 				onclick={onToggleSidebar}
-				title="Masquer la sidebar (Ctrl+B)"
+				title="Masquer (Ctrl+B)"
 			>
-				<ChevronLeft size={18} />
+				<ChevronLeft size={16} />
 			</button>
 		</div>
-		<button class="settings-btn" onclick={onOpenSettings}>
-			<Settings size={18} />
-			<span>Paramètres</span>
-		</button>
 	</div>
 </aside>
 
@@ -178,53 +211,59 @@
 
 	.sidebar-actions {
 		display: flex;
-		flex-direction: column;
-		gap: 0.5rem;
-		padding: 1rem;
+		flex-wrap: wrap;
+		gap: 0.375rem;
+		padding: 0.5rem 0.75rem;
 	}
 
-	.new-project-btn,
-	.open-project-btn,
-	.import-project-btn {
+	.action-primary {
+		flex: 1 1 100%;
 		display: flex;
 		align-items: center;
-		gap: 0.5rem;
-		padding: 0.75rem 1rem;
+		justify-content: center;
+		gap: 0.375rem;
+		padding: 0.5rem 0.65rem;
+		background: var(--color-lion-600);
 		color: var(--color-text-primary);
 		border: none;
-		border-radius: 8px;
+		border-radius: 6px;
 		cursor: pointer;
+		font-size: 0.8rem;
 		font-weight: 500;
-		font-size: 0.875rem;
+		transition: background 0.15s;
 	}
 
-	.new-project-btn {
-		background-color: var(--color-lion-600);
+	.action-primary:hover {
+		background: var(--color-lion-500);
 	}
 
-	.new-project-btn:hover {
-		background-color: var(--color-lion-500);
-	}
-
-	.open-project-btn {
-		background-color: var(--color-bg-hover);
+	.action-secondary {
+		flex: 1;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 0.3rem;
+		padding: 0.4rem 0.5rem;
+		background: transparent;
+		color: var(--color-text-secondary);
 		border: 1px solid var(--color-border);
+		border-radius: 5px;
+		cursor: pointer;
+		font-size: 0.7rem;
+		white-space: nowrap;
+		overflow: hidden;
+		transition: all 0.15s;
 	}
 
-	.open-project-btn:hover {
-		background-color: var(--color-lion-900);
+	.action-secondary span {
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+
+	.action-secondary:hover {
+		background: var(--color-bg-hover);
+		color: var(--color-text-primary);
 		border-color: var(--color-lion-600);
-	}
-
-	.import-project-btn {
-		background-color: var(--color-bg-tertiary);
-		border: 1px dashed var(--color-border);
-	}
-
-	.import-project-btn:hover {
-		background-color: var(--color-bg-hover);
-		border-color: var(--color-lion-500);
-		border-style: solid;
 	}
 
 	.sidebar-nav {
@@ -257,12 +296,51 @@
 		text-align: center;
 	}
 
+	.session-row {
+		display: flex;
+		align-items: center;
+		gap: 0;
+	}
+
+	.reorder-buttons {
+		display: flex;
+		flex-direction: column;
+		opacity: 0;
+		transition: opacity 0.15s;
+	}
+
+	.session-row:hover .reorder-buttons {
+		opacity: 1;
+	}
+
+	.reorder-btn {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		padding: 0.125rem;
+		background: none;
+		border: none;
+		color: var(--color-text-muted);
+		cursor: pointer;
+		border-radius: 3px;
+	}
+
+	.reorder-btn:hover:not(:disabled) {
+		background: var(--color-bg-hover);
+		color: var(--color-text-primary);
+	}
+
+	.reorder-btn:disabled {
+		opacity: 0.2;
+		cursor: default;
+	}
+
 	.session-item {
 		display: flex;
 		align-items: center;
 		gap: 0.5rem;
-		width: 100%;
-		padding: 0.625rem 0.75rem;
+		flex: 1;
+		padding: 0.625rem 0.75rem 0.625rem 0.5rem;
 		background: none;
 		border: none;
 		border-radius: 6px;
@@ -304,91 +382,72 @@
 		border-top: 1px solid var(--color-border);
 	}
 
-	.settings-btn {
+	.toolbar {
 		display: flex;
 		align-items: center;
-		gap: 0.5rem;
-		width: 100%;
-		padding: 0.75rem;
-		background: none;
-		border: none;
-		border-radius: 6px;
-		color: var(--color-text-secondary);
-		cursor: pointer;
-	}
-
-	.settings-btn:hover {
-		background-color: var(--color-bg-hover);
-		color: var(--color-text-primary);
-	}
-
-	.action-buttons {
-		display: flex;
-		gap: 0.5rem;
+		gap: 0.25rem;
 		padding: 0.5rem;
 		border-bottom: 1px solid var(--color-border);
 	}
 
-	.action-btn {
-		flex: 1;
+	.toolbar.bottom {
+		border-bottom: none;
+		border-top: 1px solid var(--color-border);
+	}
+
+	.toolbar-divider {
+		width: 1px;
+		height: 16px;
+		background: var(--color-border);
+		margin: 0 0.25rem;
+	}
+
+	.tool-btn {
+		position: relative;
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		gap: 0.375rem;
-		padding: 0.5rem;
+		padding: 0.4rem;
 		background: none;
-		border: 1px solid var(--color-border);
-		border-radius: 6px;
-		color: var(--color-text-secondary);
+		border: none;
+		border-radius: 5px;
+		color: var(--color-text-muted);
 		cursor: pointer;
-		font-size: 0.75rem;
 		transition: all 0.15s;
 	}
 
-	.action-btn:hover {
-		background-color: var(--color-bg-hover);
+	.tool-btn:hover {
+		background: var(--color-bg-hover);
 		color: var(--color-text-primary);
 	}
 
-	.save-btn:hover {
-		border-color: var(--color-success, #69db7c);
+	.tool-btn.active {
+		background: var(--color-lion-900);
+		color: var(--color-lion-400);
+	}
+
+	.tool-btn.save:hover {
 		color: var(--color-success, #69db7c);
 	}
 
-	.release-btn:hover {
-		border-color: var(--color-lion-500);
+	.tool-btn.release:hover {
 		color: var(--color-lion-400);
 	}
 
-	.files-btn:hover {
-		border-color: var(--color-lion-500);
-		color: var(--color-lion-400);
+	.tool-btn.collapse {
+		margin-left: auto;
 	}
 
-	.snippets-btn:hover {
-		border-color: var(--color-warning, #ffa94d);
-		color: var(--color-warning, #ffa94d);
-	}
-
-	.git-btn {
-		position: relative;
-	}
-
-	.git-btn:hover {
-		border-color: var(--color-info, #74c0fc);
-		color: var(--color-info, #74c0fc);
-	}
-
-	.git-badge {
+	.badge {
 		position: absolute;
-		top: -4px;
-		right: -4px;
-		min-width: 16px;
-		height: 16px;
-		padding: 0 4px;
+		top: -2px;
+		right: -2px;
+		min-width: 14px;
+		height: 14px;
+		padding: 0 3px;
 		background: var(--color-warning, #ffa94d);
-		border-radius: 8px;
-		font-size: 0.6rem;
+		border-radius: 7px;
+		font-size: 0.55rem;
 		font-weight: 600;
 		color: black;
 		display: flex;
@@ -396,47 +455,4 @@
 		justify-content: center;
 	}
 
-	.toggle-buttons {
-		display: flex;
-		gap: 0.5rem;
-		padding: 0.5rem;
-		border-bottom: 1px solid var(--color-border);
-	}
-
-	.toggle-btn {
-		flex: 1;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		gap: 0.375rem;
-		padding: 0.5rem;
-		background: none;
-		border: 1px solid var(--color-border);
-		border-radius: 6px;
-		color: var(--color-text-secondary);
-		cursor: pointer;
-		font-size: 0.75rem;
-		transition: all 0.15s;
-	}
-
-	.toggle-btn:hover {
-		background-color: var(--color-bg-hover);
-		color: var(--color-text-primary);
-	}
-
-	.toggle-btn.active {
-		background-color: var(--color-lion-900);
-		border-color: var(--color-lion-600);
-		color: var(--color-lion-300);
-	}
-
-	.collapse-btn {
-		flex: 0;
-		padding: 0.5rem 0.75rem;
-	}
-
-	.collapse-btn:hover {
-		border-color: var(--color-lion-500);
-		color: var(--color-lion-400);
-	}
 </style>

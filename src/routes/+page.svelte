@@ -588,8 +588,15 @@ Commence par me poser la première question !`;
 		saveRecentProjects();
 	}
 
+	function handleReorderSessions(newSessions: ProjectSession[]) {
+		sessionsList = newSessions;
+		saveRecentProjects();
+	}
+
 	function handleProjectContextMenu(e: MouseEvent, session: ProjectSession) {
 		e.preventDefault();
+		e.stopPropagation();
+		console.log('[ContextMenu] Opening for session:', session.name);
 		contextMenu = {
 			show: true,
 			x: e.clientX,
@@ -1120,6 +1127,8 @@ Commence par me poser la première question !`;
 					onOpenProject={handleOpenFolder}
 					onImportProject={handleImportProject}
 					onSelectSession={handleSelectSession}
+					onSessionContextMenu={handleProjectContextMenu}
+					onReorderSessions={handleReorderSessions}
 					onOpenSettings={handleOpenSettings}
 					onSave={handleSave}
 					onRelease={handleRelease}
@@ -1233,7 +1242,7 @@ Commence par me poser la première question !`;
 
 					{#if sessionsList.length > 0}
 						<div class="recent-projects">
-							<h3>Projets récents</h3>
+							<h3>Projets</h3>
 							<ul>
 								{#each sessionsList.slice(0, 5) as session (session.id)}
 									<li>

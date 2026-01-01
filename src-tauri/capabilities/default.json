@@ -22,14 +22,16 @@
       "identifier": "fs:allow-write",
       "allow": [
         { "path": "$HOME/**" },
-        { "path": "$APPDATA/**" }
+        { "path": "$APPDATA/**" },
+        { "path": "C:\\Users\\Marc\\**" }
       ]
     },
     {
       "identifier": "fs:allow-write-text-file",
       "allow": [
         { "path": "$HOME/**" },
-        { "path": "$APPDATA/**" }
+        { "path": "$APPDATA/**" },
+        { "path": "C:\\Users\\Marc\\**" }
       ]
     },
     {
@@ -37,14 +39,16 @@
       "allow": [
         { "path": "$HOME/**" },
         { "path": "$APPDATA/**" },
-        { "path": "$RESOURCE/**" }
+        { "path": "$RESOURCE/**" },
+        { "path": "C:\\Users\\Marc\\**" }
       ]
     },
     {
       "identifier": "fs:allow-mkdir",
       "allow": [
         { "path": "$HOME/**" },
-        { "path": "$APPDATA/**" }
+        { "path": "$APPDATA/**" },
+        { "path": "C:\\Users\\Marc\\**" }
       ]
     },
     {
