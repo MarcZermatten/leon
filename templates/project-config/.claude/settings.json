@@ -1,16 +1,15 @@
 {
   "permissions": {
     "deny": [
-      "Bash(rm -rf /*)",
-      "Bash(del /f /s /q C:\\*)",
-      "Bash(format*)",
-      "Bash(diskpart*)",
+      "Bash(rm -rf:*)",
+      "Bash(del /f /s /q:*)",
+      "Bash(format:*)",
+      "Bash(diskpart:*)",
       "Write(C:\\Windows\\**)",
       "Write(C:\\Program Files\\**)"
     ],
     "ask": [
-      "Bash(git push --force*)",
-      "Bash(rm -rf*)",
+      "Bash(git push --force:*)",
       "Write(**/.env*)"
     ],
     "allow": [
@@ -24,9 +23,6 @@
   },
   "env": {
     "PROJECT_ROOT": "{{PROJECT_PATH}}",
-    "PROJECT_NAME": "{{PROJECT_NAME}}",
-    "POSTGIS_HOST": "srv-fme",
-    "POSTGIS_DB": "Prod",
-    "POSTGIS_USER": "postgres"
+    "PROJECT_NAME": "{{PROJECT_NAME}}"
   }
 }
