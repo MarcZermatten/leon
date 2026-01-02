@@ -2,11 +2,11 @@
   "permissions": {
     "deny": [
       "Bash(rm -rf /*)",
-      "Bash(del /f /s /q C:\*)",
+      "Bash(del /f /s /q C:\\*)",
       "Bash(format*)",
       "Bash(diskpart*)",
-      "Write(C:\Windows\**)",
-      "Write(C:\Program Files\**)"
+      "Write(C:\\Windows\\**)",
+      "Write(C:\\Program Files\\**)"
     ],
     "ask": [
       "Bash(git push --force*)",
@@ -14,9 +14,9 @@
       "Write(**/.env*)"
     ],
     "allow": [
-      "Read({{PROJECT_PATH}}\**)",
-      "Write({{PROJECT_PATH}}\**)",
-      "Edit({{PROJECT_PATH}}\**)",
+      "Read({{PROJECT_PATH}}\\**)",
+      "Write({{PROJECT_PATH}}\\**)",
+      "Edit({{PROJECT_PATH}}\\**)",
       "Bash(git:*)",
       "Bash(npm:*)",
       "Bash(python:*)"
