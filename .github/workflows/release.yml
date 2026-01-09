@@ -1,0 +1,65 @@
+name: Release Leon
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag (e.g., v1.0.12)'
+        required: true
+        default: 'v1.0.15'
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Setup Rust
+        uses: dtolnay/rust-action@stable
+        with:
+          toolchain: stable
+
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: './src-tauri -> target'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Tauri app
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ github.event.inputs.version || github.ref_name }}
+          releaseName: 'Leon ${{ github.event.inputs.version || github.ref_name }}'
+          releaseBody: |
+            ## Leon - Claude Code Desktop UI
+
+            Interface graphique desktop pour Claude Code CLI.
+
+            ### Installation
+            1. Telecharger `Leon_x.x.x_x64-setup.exe`
+            2. Executer l'installateur
+            3. Lancer Leon depuis le menu Demarrer
+
+            ### Prerequis
+            - Windows 10/11 64-bit
+            - Claude Code CLI installe (`npm install -g @anthropic-ai/claude-code`)
+          releaseDraft: false
+          prerelease: false
